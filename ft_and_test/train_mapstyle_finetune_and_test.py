@@ -924,11 +924,9 @@ def build_pretrained_src_tag(pretrained_path: str | None, args) -> str:
             )
 
         rel_parts = [sanitize_name(x) for x in parts[anchor_idx + 1:-1]]
-        stem_tag = sanitize_name(p.stem)
-
         if len(rel_parts) == 0:
-            return stem_tag
-        return "_".join(rel_parts + [stem_tag])
+            return sanitize_name(p.parent.name)
+        return "_".join(rel_parts)
 
     raise ValueError(f"Unknown pretrained_tag_mode: {mode}")
 
@@ -3185,7 +3183,7 @@ def build_run_name(pretrained_path: str | None, train_manifest: str, val_manifes
     else:
         lr_tag = f"lr{args.learning_rate:g}"
 
-    return f"run_{run_index:02d}_{src}_{mode}_{lr_tag}"
+    return f"run_{run_index:02d}_{src}"
     # return f"w{run_index:02d}"
 
 
