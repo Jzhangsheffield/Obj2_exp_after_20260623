@@ -598,18 +598,40 @@ parser.add_argument(
     "--weight_decay",
     type=float,
     default=1e-4,
-    help="优化器的 weight decay；SGD 和 Adam 都会使用该值"
+    help="优化器的 weight decay；SGD 和 AdamW 都会使用该值"
 )
+
 parser.add_argument(
     "--optimizer",
     type=str,
     default="sgd",
-    choices=["sgd", "adam"],
+    choices=["sgd", "adamw"],
     help=(
         "选择微调优化器。"
         "sgd: 使用 torch.optim.SGD，保留 momentum；"
-        "adam: 使用 torch.optim.Adam，不使用 momentum。"
+        "adamw: 使用 torch.optim.AdamW，不使用 momentum，采用 decoupled weight decay。"
     ),
+)
+
+parser.add_argument(
+    "--adamw_beta1",
+    type=float,
+    default=0.9,
+    help="AdamW beta1；仅在 --optimizer adamw 时使用"
+)
+
+parser.add_argument(
+    "--adamw_beta2",
+    type=float,
+    default=0.999,
+    help="AdamW beta2；仅在 --optimizer adamw 时使用"
+)
+
+parser.add_argument(
+    "--adamw_eps",
+    type=float,
+    default=1e-8,
+    help="AdamW epsilon；仅在 --optimizer adamw 时使用"
 )
 parser.add_argument(
     "--cos",
@@ -2171,12 +2193,12 @@ def build_optimizer(model, args):
     3) full + discriminative lr（backbone / head 两组 lr）
 
     新增：
-    - args.optimizer='sgd'  : 使用 SGD(momentum, weight_decay)
-    - args.optimizer='adam' : 使用 Adam(weight_decay)，不使用 momentum
+    - args.optimizer='sgd'   : 使用 SGD(momentum, weight_decay)
+    - args.optimizer='adamw' : 使用 AdamW(betas, eps, decoupled weight_decay)，不使用 momentum
 
     注意：优化器选择和参数分组是解耦的。也就是说，
     head_only / full / discriminative lr 先决定训练哪些参数以及每组 lr，
-    然后再由 args.optimizer 决定用 SGD 还是 Adam 更新这些参数。
+    然后再由 args.optimizer 决定用 SGD 还是 AdamW 更新这些参数。
 
     返回：
         optimizer, optimizer_meta
@@ -2278,17 +2300,29 @@ def build_optimizer(model, args):
 
     if optimizer_name == "sgd":
         optimizer_meta["momentum"] = float(args.momentum)
+        optimizer_meta["adamw_beta1"] = None
+        optimizer_meta["adamw_beta2"] = None
+        optimizer_meta["adamw_eps"] = None
+
         optimizer = optim.SGD(
             param_groups,
             momentum=args.momentum,
             weight_decay=args.weight_decay,
         )
-    elif optimizer_name == "adam":
+
+    elif optimizer_name == "adamw":
         optimizer_meta["momentum"] = None
-        optimizer = optim.Adam(
+        optimizer_meta["adamw_beta1"] = float(args.adamw_beta1)
+        optimizer_meta["adamw_beta2"] = float(args.adamw_beta2)
+        optimizer_meta["adamw_eps"] = float(args.adamw_eps)
+
+        optimizer = optim.AdamW(
             param_groups,
+            betas=(args.adamw_beta1, args.adamw_beta2),
+            eps=args.adamw_eps,
             weight_decay=args.weight_decay,
         )
+
     else:
         raise ValueError(f"Unsupported optimizer: {args.optimizer}")
 
@@ -3494,6 +3528,9 @@ def run_one_training_experiment(
         "optimizer": optimizer_meta.get("optimizer", args.optimizer),
         "optimizer_weight_decay": optimizer_meta.get("weight_decay", args.weight_decay),
         "optimizer_momentum": optimizer_meta.get("momentum", None),
+        "optimizer_adamw_beta1": optimizer_meta.get("adamw_beta1", None),
+        "optimizer_adamw_beta2": optimizer_meta.get("adamw_beta2", None),
+        "optimizer_adamw_eps": optimizer_meta.get("adamw_eps", None),
         "l2_normalize_before_fc": bool(args.l2_normalize_before_fc),
         "disable_train_augmentation": bool(args.disable_train_augmentation),
         "num_trainable_params": optimizer_meta["num_trainable_params"],
