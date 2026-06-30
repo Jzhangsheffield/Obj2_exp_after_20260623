@@ -3491,7 +3491,7 @@ def run_one_training_experiment(
         model=model,
         optimizer=optimizer,
         scaler_obj=scaler_obj,
-        epoch=args.epochs - 1,
+        epoch=args.epochs,
         args=args,
         is_last=True,
         extra_info={
