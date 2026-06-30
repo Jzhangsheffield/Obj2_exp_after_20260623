@@ -13,12 +13,12 @@ REM ============================================================
 REM ============================================================
 REM 1) Paths to fill in
 REM ============================================================
-set "PROJECT_ROOT="
-set "PY_SCRIPT="
-set "DATASET_ROOT="
-set "LABEL_MAP_JSON="
-set "PRETRAIN_PARENT="
-set "OUTPUT_ROOT="
+set "PROJECT_ROOT=D:\junxi_data\experiments_after_260623"
+set "PY_SCRIPT=D:\junxi_data\experiments_after_260623\ft_and_test\train_mapstyle_finetune_and_test.py"
+set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
+set "LABEL_MAP_JSON=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset\label_map_except_take_put.json"
+set "PRETRAIN_PARENT=D:\junxi_data\experiments_after_260623\results\cl_mindrove_N_except_take_put_adamw_44"
+set "OUTPUT_ROOT=D:\junxi_data\experiments_after_260623\results\ft_mindrove_N_except_take_put_adamw_44_seed1"
 
 REM Optional: set these if your signal roots are not PRETRAIN_PARENT\signal_emg and PRETRAIN_PARENT\signal_imu.
 set "EMG_PRETRAIN_ROOT="
@@ -72,15 +72,15 @@ REM ============================================================
 REM 4) Fine-tuning augmentation policy
 REM ============================================================
 set "EMG_AUG_POLICY=tw_scale_noise"
-set "EMG_AUG_ARGS=--mindrove_time_warp_prob 0.5 --mindrove_time_warp_sigma 0.2 --mindrove_time_warp_num_knots 3 --mindrove_time_warp_num_splines 4 --mindrove_emg_scaling_prob 0.8 --mindrove_emg_scaling_sigma 0.10 --mindrove_emg_noise_prob 0.8 --mindrove_emg_noise_sigma 0.05 --mindrove_emg_drift_prob 0.0 --mindrove_emg_drift_max 0.2 --mindrove_emg_drift_n_points 4 --mindrove_emg_drift_kind linear --mindrove_emg_drift_per_channel --mindrove_emg_drift_normalize --mindrove_emg_negate_prob 0.0 --mindrove_emg_channel_dropout_prob 0.0 --mindrove_emg_channel_dropout_max_channels 1 --mindrove_imu_scaling_prob 0.0 --mindrove_imu_noise_prob 0.0 --mindrove_imu_drift_prob 0.0 --mindrove_imu_negate_prob 0.0 --mindrove_imu_channel_dropout_prob 0.0"
+set "EMG_AUG_ARGS=--mindrove_time_warp_prob 0.5 --mindrove_time_warp_sigma 0.2 --mindrove_time_warp_num_knots 3 --mindrove_time_warp_num_splines 4 --mindrove_emg_scaling_prob 0.5 --mindrove_emg_scaling_sigma 0.10 --mindrove_emg_noise_prob 0.5 --mindrove_emg_noise_sigma 0.05 --mindrove_emg_drift_prob 0.0 --mindrove_emg_drift_max 0.2 --mindrove_emg_drift_n_points 4 --mindrove_emg_drift_kind additive --mindrove_emg_drift_per_channel --mindrove_emg_drift_normalize --mindrove_emg_negate_prob 0.0 --mindrove_emg_channel_dropout_prob 0.0 --mindrove_emg_channel_dropout_max_channels 1 --mindrove_imu_scaling_prob 0.0 --mindrove_imu_noise_prob 0.0 --mindrove_imu_drift_prob 0.0 --mindrove_imu_negate_prob 0.0 --mindrove_imu_channel_dropout_prob 0.0"
 
 set "IMU_AUG_POLICY=tw_scale_noise"
-set "IMU_AUG_ARGS=--mindrove_time_warp_prob 0.5 --mindrove_time_warp_sigma 0.2 --mindrove_time_warp_num_knots 3 --mindrove_time_warp_num_splines 4 --mindrove_emg_scaling_prob 0.0 --mindrove_emg_noise_prob 0.0 --mindrove_emg_drift_prob 0.0 --mindrove_emg_negate_prob 0.0 --mindrove_emg_channel_dropout_prob 0.0 --mindrove_imu_scaling_prob 0.8 --mindrove_imu_scaling_sigma 0.05 --mindrove_imu_noise_prob 0.8 --mindrove_imu_noise_sigma 0.03 --mindrove_imu_drift_prob 0.0 --mindrove_imu_drift_max 0.2 --mindrove_imu_drift_n_points 4 --mindrove_imu_drift_kind linear --mindrove_imu_drift_per_channel --mindrove_imu_drift_normalize --mindrove_imu_negate_prob 0.0 --mindrove_imu_channel_dropout_prob 0.0 --mindrove_imu_channel_dropout_max_channels 1"
+set "IMU_AUG_ARGS=--mindrove_time_warp_prob 0.5 --mindrove_time_warp_sigma 0.2 --mindrove_time_warp_num_knots 3 --mindrove_time_warp_num_splines 4 --mindrove_emg_scaling_prob 0.0 --mindrove_emg_noise_prob 0.0 --mindrove_emg_drift_prob 0.0 --mindrove_emg_negate_prob 0.0 --mindrove_emg_channel_dropout_prob 0.0 --mindrove_imu_scaling_prob 0.5 --mindrove_imu_scaling_sigma 0.05 --mindrove_imu_noise_prob 0.5 --mindrove_imu_noise_sigma 0.03 --mindrove_imu_drift_prob 0.0 --mindrove_imu_drift_max 0.2 --mindrove_imu_drift_n_points 4 --mindrove_imu_drift_kind additive --mindrove_imu_drift_per_channel --mindrove_imu_drift_normalize --mindrove_imu_negate_prob 0.0 --mindrove_imu_channel_dropout_prob 0.0 --mindrove_imu_channel_dropout_max_channels 1"
 
 REM ============================================================
 REM 5) DataLoader parameters
 REM ============================================================
-set "BATCH_SIZE=32"
+set "BATCH_SIZE=64"
 set "NUM_WORKERS_TRAIN=8"
 set "NUM_WORKERS_VAL=6"
 set "PREFETCH_FACTOR_TRAIN=2"
@@ -90,7 +90,7 @@ set "DISABLE_VAL_ARG="
 REM ============================================================
 REM 6) Model parameters
 REM ============================================================
-set "MODEL_DEPTH=18"
+set "MODEL_DEPTH=10"
 set "L2_NORMALIZE_BEFORE_FC_ARG="
 set "MINDROVE_ARCH=resnet10_1d"
 set "MINDROVE_BASE_CHANNELS=64"
@@ -129,7 +129,7 @@ set "KEEP_PRETRAINED_HEAD_ARG="
 set "PRETRAINED_STRICT_ARG="
 set "PRETRAINED_TAG_MODE=relative_to_anchor"
 set "PRETRAINED_TAG_LAST_K=3"
-set "PRETRAINED_TAG_ANCHOR=mindrove_N_except_take_put_adamw_44"
+set "PRETRAINED_TAG_ANCHOR=cl_mindrove_N_except_take_put_adamw_44"
 
 REM ============================================================
 REM 9) Class imbalance / loss options
