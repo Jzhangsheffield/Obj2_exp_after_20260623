@@ -101,7 +101,7 @@ from loss.focal_loss import FocalLoss
 # ============================================================
 # map-style loader 相关导入
 # ============================================================
-from utils_.mapstype_dataloader_with_index_mindrove import (
+from utils_.mapstype_dataloader_with_index_mindrove_modified_varlen import (
     PackedMultiModalConfig,
     load_label_map_json,
     build_packed_mapstyle_dataset,
