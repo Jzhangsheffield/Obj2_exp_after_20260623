@@ -24,11 +24,11 @@ REM ============================================================
 REM ============================================================
 REM 1) Top-level task / path config
 REM ============================================================
-set "PROJECT_ROOT=D:\Junxi_data\Obj2_experiments_after_260623"
+set "PROJECT_ROOT=D:\junxi_data\experiments_after_260623"
 set "PY_SCRIPT=%PROJECT_ROOT%\ft_and_test\train_mapstyle_finetune_and_test.py"
 set "PYTHON_BIN=python"
 
-set "DATASET_ROOT=C:\Junxi_data_for_training_speedup\Final_Mapstyle_Dataset"
+set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
 
 REM Choose one preset: take_put / except_take_put / custom
 REM If TASK_PRESET=custom, edit LABEL_MAP_JSON, NUM_CLASSES, TEST_MANIFEST,
@@ -36,9 +36,9 @@ REM and the CUSTOM_* normalization values in section 7.
 set "TASK_PRESET=take_put"
 
 REM These are filled by :apply_task_preset unless TASK_PRESET=custom.
-set "LABEL_MAP_JSON="
-set "NUM_CLASSES="
-set "TEST_MANIFEST="
+set "LABEL_MAP_JSON=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset\label_map_take_put.json"
+set "NUM_CLASSES=2"
+set "TEST_MANIFEST=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset\N_as_test\test_manifest_take_put.jsonl"
 
 REM Optional manual overrides after preset is applied.
 REM Leave empty to use preset values.
@@ -49,7 +49,7 @@ set "TEST_MANIFEST_OVERRIDE="
 REM Weight parent root. Change only this if your output structure is:
 REM   WEIGHT_PARENT_ROOT\signal_emg\...
 REM   WEIGHT_PARENT_ROOT\signal_imu\...
-set "WEIGHT_PARENT_ROOT=D:\Junxi_data\Obj2_experiments_after_260623\results\ft_mindrove_N_take_put_adamw_44_seed1\weights"
+set "WEIGHT_PARENT_ROOT=D:\junxi_data\experiments_after_260623\results\ft_mindrove_N_take_put_adamw_44_seed1\weights"
 
 REM Optional signal root overrides. Leave empty to use WEIGHT_PARENT_ROOT\signal_emg / signal_imu.
 set "EMG_WEIGHT_ROOT="
@@ -66,10 +66,10 @@ set "SUMMARY_ROOT=%OUTPUT_BASE%\summary"
 REM ============================================================
 REM 2) Checkpoint selection and batching
 REM ============================================================
-set "MATCH_BEST_VAL=1"
-set "MATCH_BEST_VAL_BALANCED=1"
-set "MATCH_BEST_VAL_MACRO_F1=1"
-set "MATCH_LAST=0"
+set "MATCH_BEST_VAL=0"
+set "MATCH_BEST_VAL_BALANCED=0"
+set "MATCH_BEST_VAL_MACRO_F1=0"
+set "MATCH_LAST=1"
 
 REM Maximum number of weights passed to one Python invocation.
 REM Increase if paths are short; decrease if cmd reports line too long.
