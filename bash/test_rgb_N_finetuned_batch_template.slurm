@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=test_rgb_N_ft
+#SBATCH --job-name=test_rgb_N_ft_except_take_put
 #SBATCH --partition=gpu,gpu-h100,gpu-h100-nvl
 #SBATCH --qos=gpu
 #SBATCH --nodes=1
@@ -10,8 +10,8 @@
 #SBATCH --time=12:00:00
 #SBATCH --mail-user=jzhang319@sheffield.ac.uk
 #SBATCH --mail-type=ALL
-#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_%j.out
-#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_%j.err
+#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_except_take_put%j.out
+#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_except_take_put%j.err
 
 set -euo pipefail
 
@@ -53,7 +53,7 @@ DATASET_ROOT="/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyl
 # Choose one preset: take_put / except_take_put / custom
 # If TASK_PRESET=custom, edit LABEL_MAP_JSON, NUM_CLASSES, TEST_MANIFEST,
 # and CUSTOM_RGB_MEAN / CUSTOM_RGB_STD in section 7.
-TASK_PRESET="take_put"
+TASK_PRESET="except_take_put"
 
 # These are filled by apply_task_preset unless TASK_PRESET=custom.
 LABEL_MAP_JSON=""
@@ -70,7 +70,7 @@ RGB_MEAN_OVERRIDE=()
 RGB_STD_OVERRIDE=()
 
 # Fine-tuned RGB weight root. Change this to test another completed run.
-WEIGHT_ROOT="${PROJECT_ROOT}/results/ft_rgb_N_take_put_adamw_22_seed1/weights"
+WEIGHT_ROOT="${PROJECT_ROOT}/results/ft_rgb_N_except_take_put_adamw_22_seed1/weights"
 
 # Output root for summary CSV, tested-weight lists, and console logs.
 RUN_STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -82,10 +82,10 @@ SUMMARY_ROOT="${OUTPUT_BASE}/summary"
 # ============================================================
 # 2) Checkpoint selection and batching
 # ============================================================
-MATCH_BEST_VAL=1
-MATCH_BEST_VAL_BALANCED=1
-MATCH_BEST_VAL_MACRO_F1=1
-MATCH_LAST=0
+MATCH_BEST_VAL=0
+MATCH_BEST_VAL_BALANCED=0
+MATCH_BEST_VAL_MACRO_F1=0
+MATCH_LAST=1
 
 # Maximum number of weights passed to one Python invocation.
 # Increase if paths are short; decrease if shell reports argument list too long.
