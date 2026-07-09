@@ -32,6 +32,10 @@ from utils_.mapstype_dataloader_with_index_mindrove_modified_varlen import (
     build_packed_mapstyle_dataset,
     build_packed_mapstyle_loader_from_dataset,
 )
+from utils_.sampler import (
+    build_weighted_sampler_for_packed_dataset,
+    build_class_balanced_batch_sampler_for_packed_dataset,
+)
 from utils_.build_update_prototype_mapstyle_varproto_mindrove_modified_varlen import (
     PrototypeRefreshConfig,
     broadcast_proto_state,
@@ -80,6 +84,36 @@ parser.add_argument("--pin_memory", action="store_true",
                     help="enable pin_memory for the training DataLoader")
 parser.add_argument("--verify_paths_on_init", action="store_true",
                     help="verify sample paths when constructing the training dataset")
+
+# ---------------- 训练采样策略 ----------------
+# sampler_type 控制训练 DataLoader 的采样方式：
+#   none           : 原始行为。单卡 shuffle；DDP 下使用 DistributedSampler。
+#   weighted       : 使用 WeightedRandomSampler，按类别频率反比重采样单个样本。
+#   balanced_batch : 使用 ClassBalancedBatchSampler，直接控制每个 batch 的类别组成。
+parser.add_argument("--sampler_type", default="none", choices=["none", "weighted", "balanced_batch"], type=str,
+                    help="training sampler type: none / weighted / balanced_batch")
+parser.add_argument("--sampler_tier", default=None, choices=["tier1", "tier2", "tier3"], type=str,
+                    help="tier used to build weighted or balanced-batch sampler; default follows --tier_mode, or tier3 when tier_mode=all")
+
+# WeightedRandomSampler 参数。
+parser.add_argument("--weighted_sampler_mode", default="sqrt_inv", choices=["inv", "sqrt_inv"], type=str,
+                    help="class weight mode for WeightedRandomSampler")
+parser.add_argument("--weighted_sampler_replacement", action=argparse.BooleanOptionalAction, default=True,
+                    help="whether WeightedRandomSampler samples with replacement")
+parser.add_argument("--weighted_sampler_num_samples", default=None, type=int,
+                    help="number of samples drawn per epoch by WeightedRandomSampler; default=len(dataset)")
+
+# ClassBalancedBatchSampler 参数。
+parser.add_argument("--balanced_classes_per_batch", default=16, type=int,
+                    help="number of classes sampled in each class-balanced batch")
+parser.add_argument("--balanced_samples_per_class", default=2, type=int,
+                    help="number of samples sampled per class in each class-balanced batch")
+parser.add_argument("--balanced_num_batches", default=None, type=int,
+                    help="number of batches per epoch for ClassBalancedBatchSampler; default inferred from dataset length")
+parser.add_argument("--balanced_replacement", action=argparse.BooleanOptionalAction, default=True,
+                    help="whether ClassBalancedBatchSampler samples with replacement inside each selected class")
+parser.add_argument("--balanced_drop_last", action=argparse.BooleanOptionalAction, default=True,
+                    help="used only when balanced_num_batches is None; controls default epoch length calculation")
 
 # ---------------- 模型参数 ----------------
 parser.add_argument("--ts_arch",default="resnet10_1d",choices=["resnet10_1d", "resnet18_1d", "resnet34_1d", "resnet50_1d"],
@@ -1143,6 +1177,127 @@ def prepare_model(args) -> nn.Module:
     return model
 
 
+
+def build_train_sampler_or_batch_sampler(
+    dataset,
+    args,
+    use_ddp: bool,
+    rank: int,
+    world_size: int,
+):
+    """
+    根据命令行参数为训练 DataLoader 构建 sampler 或 batch_sampler。
+
+    返回
+    ----
+    sampler:
+        普通 PyTorch sampler，例如 DistributedSampler 或 WeightedRandomSampler。
+
+    batch_sampler:
+        batch-level sampler，例如 ClassBalancedBatchSampler。
+        若不为 None，DataLoader 不能再接收 batch_size / shuffle / sampler / drop_last。
+
+    shuffle:
+        普通 sampler 分支下传给 DataLoader 的 shuffle 标志。
+
+    sampler_info:
+        采样统计信息，主要用于日志记录和调试。
+
+    设计原则
+    --------
+    1) sampler_type="none" 保持原始行为：
+       - 单卡：shuffle=True
+       - DDP：DistributedSampler
+
+    2) sampler_type="weighted" 使用 WeightedRandomSampler：
+       - 按类别频率构造 sample weight
+       - 只能控制长期采样概率，不保证每个 batch 内类别均衡
+
+    3) sampler_type="balanced_batch" 使用 ClassBalancedBatchSampler：
+       - 直接生成每个 batch 的 indices
+       - 要求 batch_size == balanced_classes_per_batch * balanced_samples_per_class
+
+    4) 当前不把 weighted / balanced_batch 与 DDP 混用。
+       如果以后需要 DDP，需要实现 distributed-aware sampler，否则不同 rank 可能采样重复
+       或者 step 数不一致。
+    """
+    sampler_type = str(getattr(args, "sampler_type", "none")).strip().lower()
+    if sampler_type not in ("none", "weighted", "balanced_batch"):
+        raise ValueError(f"Unsupported sampler_type={sampler_type!r}")
+
+    sampler = None
+    batch_sampler = None
+    shuffle = True
+    sampler_info: Dict[str, Any] = {"sampler_type": sampler_type}
+
+    if sampler_type != "none" and use_ddp:
+        raise ValueError(
+            f"sampler_type={sampler_type!r} is currently not supported with DDP. "
+            "Please run with --no_ddp, or implement a distributed-aware sampler."
+        )
+
+    if sampler_type == "weighted":
+        sampler, info = build_weighted_sampler_for_packed_dataset(
+            dataset=dataset,
+            tier_for_sampling=args.sampler_tier,
+            mode=args.weighted_sampler_mode,
+            replacement=args.weighted_sampler_replacement,
+            num_samples=args.weighted_sampler_num_samples,
+            verbose=is_main_process(rank),
+        )
+        sampler_info.update(info)
+        shuffle = False
+
+    elif sampler_type == "balanced_batch":
+        expected_batch_size = int(args.balanced_classes_per_batch) * int(args.balanced_samples_per_class)
+        if expected_batch_size != int(args.batch_size):
+            raise ValueError(
+                "For sampler_type='balanced_batch', batch_size must equal "
+                "balanced_classes_per_batch * balanced_samples_per_class. "
+                f"Got batch_size={args.batch_size}, "
+                f"balanced_classes_per_batch={args.balanced_classes_per_batch}, "
+                f"balanced_samples_per_class={args.balanced_samples_per_class}, "
+                f"product={expected_batch_size}."
+            )
+
+        batch_sampler, info = build_class_balanced_batch_sampler_for_packed_dataset(
+            dataset=dataset,
+            tier_for_sampling=args.sampler_tier,
+            classes_per_batch=args.balanced_classes_per_batch,
+            samples_per_class=args.balanced_samples_per_class,
+            num_batches=args.balanced_num_batches,
+            replacement=args.balanced_replacement,
+            drop_last=args.balanced_drop_last,
+            seed=args.seed,
+            verbose=is_main_process(rank),
+        )
+        sampler_info.update(info)
+        shuffle = False
+
+    else:
+        if use_ddp:
+            sampler = DistributedSampler(
+                dataset,
+                num_replicas=world_size,
+                rank=rank,
+                shuffle=True,
+                drop_last=False,
+            )
+            shuffle = False
+        else:
+            sampler = None
+            batch_sampler = None
+            shuffle = True
+
+    if is_main_process(rank):
+        log(f"[Sampler] sampler_type={sampler_type}")
+        if sampler_type in ("weighted", "balanced_batch"):
+            log(f"[Sampler] tier_for_sampling={sampler_info.get('tier_for_sampling')}")
+            log(f"[Sampler] num_classes_in_split={sampler_info.get('num_classes_in_split')}")
+            log(f"[Sampler] class_counts={dict(sorted(sampler_info.get('class_counts', {}).items()))}")
+
+    return sampler, batch_sampler, shuffle, sampler_info
+
 def prepare_trainloader(args, use_ddp: bool, rank: int, world_size: int):
     """
     构建训练阶段使用的 MindRove map-style DataLoader。
@@ -1226,17 +1381,13 @@ def prepare_trainloader(args, use_ddp: bool, rank: int, world_size: int):
         verify_paths_on_init=args.verify_paths_on_init,
     )
 
-    sampler = None
-    shuffle = True
-    if use_ddp:
-        sampler = DistributedSampler(
-            dataset,
-            num_replicas=world_size,
-            rank=rank,
-            shuffle=True,
-            drop_last=False,
-        )
-        shuffle = False
+    sampler, batch_sampler, shuffle, _sampler_info = build_train_sampler_or_batch_sampler(
+        dataset=dataset,
+        args=args,
+        use_ddp=use_ddp,
+        rank=rank,
+        world_size=world_size,
+    )
 
     loader = build_packed_mapstyle_loader_from_dataset(
         dataset=dataset,
@@ -1245,10 +1396,15 @@ def prepare_trainloader(args, use_ddp: bool, rank: int, world_size: int):
         shuffle=shuffle,
         drop_last=True,
         sampler=sampler,
+        batch_sampler=batch_sampler,
         pin_memory=args.pin_memory,
         prefetch_factor=args.prefetch_factor,
     )
-    return loader, sampler
+
+    # train_sampler 只用于训练循环中的 set_epoch(epoch)。
+    # 对普通 sampler 返回 sampler；对 batch_sampler 返回 batch_sampler。
+    active_sampler = batch_sampler if batch_sampler is not None else sampler
+    return loader, active_sampler
 
 
 def extract_two_views_and_labels(
