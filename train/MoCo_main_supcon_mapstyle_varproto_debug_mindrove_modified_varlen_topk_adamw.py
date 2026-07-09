@@ -1795,6 +1795,186 @@ def _compute_batch_label_stats(labels: torch.Tensor) -> Dict[str, Any]:
     }
 
 
+
+def _compute_supcon_queue_anchor_stats(
+    target: Optional[torch.Tensor],
+    queue_size: int,
+) -> Dict[str, Any]:
+    """
+    Compute diagnostics for the MoCo + SupCon contrastive set.
+
+    The model returns target labels in the same order as SupLoss consumes them:
+        [query labels, key labels, queue labels]
+    with shape [B + B + K].
+
+    This function reports two quantities that are important for supervised MoCo:
+    1) queue / memory-bank class distribution;
+    2) number of supervised positives available to each query anchor.
+
+    The positive-count definition follows SupLoss:
+        positives for anchor i are all entries with the same label as query i,
+        excluding the query itself.
+    """
+    if target is None or not torch.is_tensor(target):
+        return {
+            "available": False,
+            "reason": "target is None or not a tensor",
+        }
+
+    try:
+        labels_flat = target.detach().view(-1).long().cpu()
+    except Exception as e:
+        return {
+            "available": False,
+            "reason": f"failed to flatten target labels: {type(e).__name__}: {e}",
+        }
+
+    total_labels = int(labels_flat.numel())
+    queue_size = int(queue_size)
+    if queue_size < 0:
+        return {
+            "available": False,
+            "reason": f"queue_size must be non-negative, got {queue_size}",
+            "total_labels": total_labels,
+        }
+
+    non_queue_count = total_labels - queue_size
+    if non_queue_count < 0 or (non_queue_count % 2) != 0:
+        return {
+            "available": False,
+            "reason": (
+                "target length is incompatible with [B, B, K] layout: "
+                f"total_labels={total_labels}, queue_size={queue_size}"
+            ),
+            "total_labels": total_labels,
+            "queue_size_expected": queue_size,
+        }
+
+    batch_size = non_queue_count // 2
+    query_labels = labels_flat[:batch_size]
+    key_labels = labels_flat[batch_size:2 * batch_size]
+    queue_labels = labels_flat[2 * batch_size:]
+
+    def _distribution(x: torch.Tensor) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], int, int]:
+        valid_mask = x >= 0
+        valid = x[valid_mask]
+        invalid_count = int((~valid_mask).sum().item())
+        valid_count = int(valid.numel())
+        if valid_count == 0:
+            return [], [], valid_count, invalid_count
+
+        uniq, counts = torch.unique(valid, return_counts=True)
+        by_label = []
+        for u, c in zip(uniq, counts):
+            count = int(c.item())
+            by_label.append({
+                "label": int(u.item()),
+                "count": count,
+                "fraction": float(count / max(1, valid_count)),
+            })
+        by_count = sorted(by_label, key=lambda item: item["count"], reverse=True)
+        return by_label, by_count, valid_count, invalid_count
+
+    queue_by_label, queue_by_count, queue_valid_count, queue_invalid_count = _distribution(queue_labels)
+
+    pos_total_counts: List[int] = []
+    pos_other_query_counts: List[int] = []
+    pos_key_counts: List[int] = []
+    pos_queue_counts: List[int] = []
+
+    for anchor_idx in range(batch_size):
+        y = int(query_labels[anchor_idx].item())
+        if y < 0:
+            total_pos = 0
+            other_query_pos = 0
+            key_pos = 0
+            queue_pos = 0
+        else:
+            other_query_pos = int((query_labels == y).sum().item()) - 1
+            key_pos = int((key_labels == y).sum().item())
+            queue_pos = int((queue_labels == y).sum().item())
+            total_pos = other_query_pos + key_pos + queue_pos
+
+        pos_total_counts.append(int(total_pos))
+        pos_other_query_counts.append(int(other_query_pos))
+        pos_key_counts.append(int(key_pos))
+        pos_queue_counts.append(int(queue_pos))
+
+    def _basic_stats(values: List[int]) -> Dict[str, Any]:
+        if len(values) == 0:
+            return {
+                "mean": 0.0,
+                "min": 0,
+                "max": 0,
+                "zero_count": 0,
+            }
+        arr = torch.tensor(values, dtype=torch.float32)
+        return {
+            "mean": float(arr.mean().item()),
+            "min": int(arr.min().item()),
+            "max": int(arr.max().item()),
+            "zero_count": int((arr == 0).sum().item()),
+        }
+
+    total_pos_stats = _basic_stats(pos_total_counts)
+    other_query_pos_stats = _basic_stats(pos_other_query_counts)
+    key_pos_stats = _basic_stats(pos_key_counts)
+    queue_pos_stats = _basic_stats(pos_queue_counts)
+
+    return {
+        "available": True,
+        "total_labels": total_labels,
+        "batch_size_inferred": int(batch_size),
+        "queue_size_expected": int(queue_size),
+        "queue_size_observed": int(queue_labels.numel()),
+        "queue_valid_count": queue_valid_count,
+        "queue_invalid_count": queue_invalid_count,
+        "queue_num_classes": int(len(queue_by_label)),
+        "queue_class_distribution_by_label": queue_by_label,
+        "queue_class_distribution_by_count": queue_by_count,
+        "pos_per_anchor_total": total_pos_stats,
+        "pos_per_anchor_other_query": other_query_pos_stats,
+        "pos_per_anchor_key": key_pos_stats,
+        "pos_per_anchor_queue": queue_pos_stats,
+        "pos_per_anchor_total_counts": pos_total_counts,
+        "pos_per_anchor_other_query_counts": pos_other_query_counts,
+        "pos_per_anchor_key_counts": pos_key_counts,
+        "pos_per_anchor_queue_counts": pos_queue_counts,
+    }
+
+
+def _format_supcon_queue_anchor_stats(prefix: str, stats: Dict[str, Any]) -> List[str]:
+    """Format SupCon queue / positive-count diagnostics for console and train_log.txt."""
+    if not stats or not stats.get("available", False):
+        reason = None if not stats else stats.get("reason")
+        return [f"{prefix}[Unavailable] reason={reason}"]
+
+    total_pos = stats["pos_per_anchor_total"]
+    other_query_pos = stats["pos_per_anchor_other_query"]
+    key_pos = stats["pos_per_anchor_key"]
+    queue_pos = stats["pos_per_anchor_queue"]
+
+    queue_msg = (
+        f"{prefix}[Queue] "
+        f"observed={stats['queue_size_observed']} "
+        f"valid={stats['queue_valid_count']} "
+        f"invalid={stats['queue_invalid_count']} "
+        f"num_classes={stats['queue_num_classes']} "
+        f"class_distribution={stats['queue_class_distribution_by_count']}"
+    )
+    pos_msg = (
+        f"{prefix}[PosPerAnchor] "
+        f"total_mean={total_pos['mean']:.4f} "
+        f"total_min={total_pos['min']} "
+        f"total_max={total_pos['max']} "
+        f"anchors_without_pos={total_pos['zero_count']} "
+        f"other_query_mean={other_query_pos['mean']:.4f} "
+        f"key_mean={key_pos['mean']:.4f} "
+        f"queue_mean={queue_pos['mean']:.4f}"
+    )
+    return [queue_msg, pos_msg]
+
+
 def _compute_feature_stats(q: torch.Tensor) -> Dict[str, Any]:
     """
     统计 query 特征 q 的基本分布。
@@ -2116,6 +2296,10 @@ def train_one_epoch(
 
         with autocast(device_type=("cuda" if device.type == "cuda" else "cpu"), dtype=amp_dtype, enabled=use_amp):
             features, target, loss_kcl, q, _ = model(im_q=view1, im_k=view2, labels=labels)
+            supcon_queue_anchor_stats = _compute_supcon_queue_anchor_stats(
+                target=target,
+                queue_size=int(getattr(sup_criterion, "K", 0)) if sup_criterion is not None else 0,
+            )
 
             if contrastive_loss_mode == "kcl":
                 if loss_kcl is None:
@@ -2309,6 +2493,9 @@ def train_one_epoch(
             )
             log(msg)
 
+            for extra_msg in _format_supcon_queue_anchor_stats("[SupConStats]", supcon_queue_anchor_stats):
+                log(extra_msg)
+
         # -----------------------------
         # Debug 日志
         # -----------------------------
@@ -2328,6 +2515,7 @@ def train_one_epoch(
                 "running_avg_supcon": float(losses_supcon.average),
                 "running_avg_proto": float(losses_proto.average),
                 "running_avg_rel": float(losses_rel.average),
+                "supcon_queue_anchor_stats": supcon_queue_anchor_stats,
             }
 
             # 1) batch 标签统计
@@ -2370,6 +2558,9 @@ def train_one_epoch(
                 f"lambda_proto*proto={debug_payload['weighted_proto_contrib']:.4f}, "
                 f"lambda_rel*rel={debug_payload['weighted_rel_contrib']:.4f}"
             )
+
+            for extra_msg in _format_supcon_queue_anchor_stats("[Debug][SupConStats]", debug_payload["supcon_queue_anchor_stats"]):
+                log(extra_msg)
 
             if debug_cfg.batch_label_stats:
                 bstats = debug_payload["batch_label_stats"]
