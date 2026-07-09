@@ -92,15 +92,22 @@ MindRove 流程
 from __future__ import annotations
 
 import json
-from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as Fnn
-from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
+
+# 公共 sampler 工具。这里导入主要是为了兼容旧代码：
+# 旧脚本如果仍然从 dataloader 文件 import build_weighted_sampler_for_packed_dataset，
+# 也可以继续工作；新的主训练脚本会直接从 utils_.sampler 导入。
+from utils_.sampler import (
+    build_weighted_sampler_for_packed_dataset,
+    build_class_balanced_batch_sampler_for_packed_dataset,
+)
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms.v2 import functional as Fv2
 import random
@@ -1471,29 +1478,54 @@ def build_packed_mapstyle_loader_from_dataset(
     drop_last: bool = True,
     prefetch_factor: Optional[int] = None,
     sampler=None,
+    batch_sampler=None,
     pin_memory: bool = False,
 ) -> DataLoader:
     """
     把已构建好的 dataset 包装成 DataLoader。
 
-    说明：
-    - 若 sampler 不为 None（例如 DistributedSampler），则必须关闭 shuffle
-    - collate_fn 固定使用 packed_multimodal_collate
-    - worker_init_fn 会把 torch worker seed 同步给 numpy / random，
-      以保证 MindRove drift 等使用 np.random 的增强在多 worker 下随机性正确
+    说明
+    ----
+    1) 普通 sampler 分支：
+       DataLoader 使用 batch_size / shuffle / sampler / drop_last。
+
+    2) batch_sampler 分支：
+       DataLoader 每次直接从 batch_sampler 得到一个完整的 index list。
+       按 PyTorch 约束，batch_sampler 不能与 batch_size、shuffle、sampler、drop_last
+       同时传入。因此这里显式分成两个分支，避免参数互斥错误。
+
+    3) collate_fn 固定使用 packed_multimodal_collate。
+
+    4) worker_init_fn 会把 torch worker seed 同步给 numpy / random，
+       以保证 MindRove drift 等使用 np.random 的增强在多 worker 下随机性正确。
+       注意：batch_sampler 分支也必须保留 worker_init_fn。
     """
-    loader_kwargs = dict(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=(shuffle if sampler is None else False),
-        sampler=sampler,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=(num_workers > 0),
-        drop_last=drop_last,
-        collate_fn=packed_multimodal_collate,
-        worker_init_fn=_seed_worker if num_workers > 0 else None,
-    )
+    if batch_sampler is not None and sampler is not None:
+        raise ValueError("sampler and batch_sampler are mutually exclusive. Please pass only one.")
+
+    if batch_sampler is not None:
+        loader_kwargs = dict(
+            dataset=dataset,
+            batch_sampler=batch_sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=(num_workers > 0),
+            collate_fn=packed_multimodal_collate,
+            worker_init_fn=_seed_worker if num_workers > 0 else None,
+        )
+    else:
+        loader_kwargs = dict(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=(shuffle if sampler is None else False),
+            sampler=sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=(num_workers > 0),
+            drop_last=drop_last,
+            collate_fn=packed_multimodal_collate,
+            worker_init_fn=_seed_worker if num_workers > 0 else None,
+        )
 
     if num_workers > 0 and prefetch_factor is not None:
         loader_kwargs["prefetch_factor"] = prefetch_factor
@@ -1513,6 +1545,7 @@ def build_packed_mapstyle_loader(
     drop_last: bool = True,
     prefetch_factor: Optional[int] = None,
     sampler=None,
+    batch_sampler=None,
     verify_paths_on_init: bool = True,
     pin_memory: bool = False,
 ) -> DataLoader:
@@ -1535,133 +1568,17 @@ def build_packed_mapstyle_loader(
         drop_last=drop_last,
         prefetch_factor=prefetch_factor,
         sampler=sampler,
+        batch_sampler=batch_sampler,
         pin_memory=pin_memory,
     )
     return loader
 
 
 # ============================================================
-# 8) Weighted sampler
+# 8) 采样器
 # ============================================================
-
-def build_weighted_sampler_for_packed_dataset(
-    dataset: PackedRGBDepthMindRoveMapDataset,
-    tier_for_sampling: Optional[str] = None,
-    mode: str = "sqrt_inv",
-    replacement: bool = True,
-    num_samples: Optional[int] = None,
-    verbose: bool = True,
-) -> Tuple[WeightedRandomSampler, Dict[str, Any]]:
-    """
-    为 PackedRGBDepthMindRoveMapDataset 构建 WeightedRandomSampler。
-    这里只使用 dataset.records 中的标签信息，不会真的加载视频或 MindRove 文件。
-    """
-    if not hasattr(dataset, "records"):
-        raise TypeError("dataset must have attribute 'records'.")
-
-    if not hasattr(dataset, "label_map"):
-        raise TypeError("dataset must have attribute 'label_map'.")
-
-    if not hasattr(dataset, "cfg"):
-        raise TypeError("dataset must have attribute 'cfg'.")
-
-    if tier_for_sampling is None:
-        if dataset.cfg.tier_mode in ("tier1", "tier2", "tier3"):
-            tier_for_sampling = dataset.cfg.tier_mode
-        else:
-            tier_for_sampling = "tier3"
-
-    if tier_for_sampling not in ("tier1", "tier2", "tier3"):
-        raise ValueError(
-            f"tier_for_sampling must be one of ('tier1','tier2','tier3'), got {tier_for_sampling}"
-        )
-
-    if tier_for_sampling not in dataset.label_map:
-        raise KeyError(f"dataset.label_map does not contain key '{tier_for_sampling}'")
-
-    tier_label_map = dataset.label_map[tier_for_sampling]
-
-    labels = []
-    bad_indices = []
-
-    for i, rec in enumerate(dataset.records):
-        action_name = rec.get(tier_for_sampling, None)
-
-        if action_name is None:
-            bad_indices.append(i)
-            labels.append(-1)
-            continue
-
-        action_name = str(action_name)
-        class_id = tier_label_map.get(action_name, -1)
-
-        if class_id < 0:
-            bad_indices.append(i)
-
-        labels.append(int(class_id))
-
-    if len(bad_indices) > 0:
-        raise ValueError(
-            f"Found {len(bad_indices)} samples with invalid label for {tier_for_sampling}. "
-            f"Example bad indices: {bad_indices[:10]}"
-        )
-
-    labels = torch.as_tensor(labels, dtype=torch.long)
-    counter = Counter(labels.tolist())
-
-    if len(counter) == 0:
-        raise RuntimeError("No valid labels found for weighted sampling.")
-
-    max_class_id = max(counter.keys())
-    class_counts_tensor = torch.zeros(max_class_id + 1, dtype=torch.long)
-
-    for cls_id, cnt in counter.items():
-        class_counts_tensor[cls_id] = int(cnt)
-
-    class_weights = torch.zeros_like(class_counts_tensor, dtype=torch.double)
-
-    for cls_id, cnt in counter.items():
-        if cnt <= 0:
-            raise ValueError(f"Invalid class count for class {cls_id}: {cnt}")
-
-        if mode == "inv":
-            w = 1.0 / float(cnt)
-        elif mode == "sqrt_inv":
-            w = 1.0 / (float(cnt) ** 0.5)
-        else:
-            raise ValueError(f"Unsupported mode: {mode}. Use 'inv' or 'sqrt_inv'.")
-
-        class_weights[cls_id] = w
-
-    sample_weights = class_weights[labels].to(torch.double)
-
-    if num_samples is None:
-        num_samples = len(dataset)
-
-    sampler = WeightedRandomSampler(
-        weights=sample_weights,
-        num_samples=num_samples,
-        replacement=replacement,
-    )
-
-    info = {
-        "tier_for_sampling": tier_for_sampling,
-        "labels": labels,
-        "class_counts": counter,
-        "class_weights": class_weights,
-        "sample_weights": sample_weights,
-        "num_samples": num_samples,
-    }
-
-    if verbose:
-        print(f"[WeightedSampler] tier_for_sampling = {tier_for_sampling}")
-        print(f"[WeightedSampler] mode = {mode}")
-        print(f"[WeightedSampler] replacement = {replacement}")
-        print(f"[WeightedSampler] num_samples = {num_samples}")
-        print(f"[WeightedSampler] num_classes_in_split = {len(counter)}")
-        print(f"[WeightedSampler] class_counts = {dict(sorted(counter.items()))}")
-
-    return sampler, info
+# WeightedRandomSampler 和 ClassBalancedBatchSampler 已经移动到 utils_.sampler。
+# 本文件顶部保留了导入，用于兼容旧 import 路径。
 
 
 # ============================================================

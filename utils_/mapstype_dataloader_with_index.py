@@ -74,6 +74,14 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data._utils.collate import default_collate
 
+# 公共 sampler 工具。这里导入主要是为了兼容旧代码：
+# 旧脚本如果仍然从 dataloader 文件 import build_weighted_sampler_for_packed_dataset，
+# 也可以继续工作；新的主训练脚本会直接从 utils_.sampler 导入。
+from utils_.sampler import (
+    build_weighted_sampler_for_packed_dataset,
+    build_class_balanced_batch_sampler_for_packed_dataset,
+)
+
 from torchvision.transforms.v2 import functional as Fv2
 from torchvision.transforms import InterpolationMode
 
@@ -680,26 +688,48 @@ def build_packed_mapstyle_loader_from_dataset(
     drop_last: bool = True,
     prefetch_factor: Optional[int] = None,
     sampler=None,
+    batch_sampler=None,
     pin_memory: bool = False,
 ) -> DataLoader:
     """
     只负责把已经构建好的 dataset 包装成 DataLoader。
 
-    说明：
-    - 若 sampler 不为 None（例如 DistributedSampler），则必须关闭 shuffle
-    - collate_fn 固定使用 packed_multimodal_collate
+    说明
+    ----
+    1) 普通 sampler 分支：
+       DataLoader 使用 batch_size / shuffle / sampler / drop_last。
+
+    2) batch_sampler 分支：
+       DataLoader 每次直接从 batch_sampler 得到一个完整的 index list。
+       按 PyTorch 约束，batch_sampler 不能与 batch_size、shuffle、sampler、drop_last
+       同时传入。因此这里显式分成两个分支，避免参数互斥错误。
+
+    3) collate_fn 固定使用 packed_multimodal_collate。
     """
-    loader_kwargs = dict(
-        dataset=dataset,
-        batch_size=batch_size,
-        shuffle=(shuffle if sampler is None else False),
-        sampler=sampler,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=(num_workers > 0),
-        drop_last=drop_last,
-        collate_fn=packed_multimodal_collate,
-    )
+    if batch_sampler is not None and sampler is not None:
+        raise ValueError("sampler and batch_sampler are mutually exclusive. Please pass only one.")
+
+    if batch_sampler is not None:
+        loader_kwargs = dict(
+            dataset=dataset,
+            batch_sampler=batch_sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=(num_workers > 0),
+            collate_fn=packed_multimodal_collate,
+        )
+    else:
+        loader_kwargs = dict(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=(shuffle if sampler is None else False),
+            sampler=sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=(num_workers > 0),
+            drop_last=drop_last,
+            collate_fn=packed_multimodal_collate,
+        )
 
     if num_workers > 0 and prefetch_factor is not None:
         loader_kwargs["prefetch_factor"] = prefetch_factor
@@ -719,6 +749,7 @@ def build_packed_mapstyle_loader(
     drop_last: bool = True,
     prefetch_factor: Optional[int] = None,
     sampler=None,
+    batch_sampler=None,
     verify_paths_on_init: bool = True,
     pin_memory: bool = False,
 ) -> DataLoader:
@@ -748,206 +779,17 @@ def build_packed_mapstyle_loader(
         drop_last=drop_last,
         prefetch_factor=prefetch_factor,
         sampler=sampler,
+        batch_sampler=batch_sampler,
         pin_memory=pin_memory,
     )
     return loader
 
 
 # ============================================================
-# 8) 构建 weighted sampler
+# 8) 采样器
 # ============================================================
-from collections import Counter
-from typing import Optional, Dict, Any, Tuple
-import torch
-from torch.utils.data import WeightedRandomSampler
-
-
-def build_weighted_sampler_for_packed_dataset(
-    dataset: "PackedRGBDepthMapDataset",
-    tier_for_sampling: Optional[str] = None,
-    mode: str = "sqrt_inv",
-    replacement: bool = True,
-    num_samples: Optional[int] = None,
-    verbose: bool = True,
-) -> Tuple[WeightedRandomSampler, Dict[str, Any]]:
-    """
-    为 PackedRGBDepthMapDataset 构建 WeightedRandomSampler。
-
-    参数
-    ----
-    dataset : PackedRGBDepthMapDataset
-        已经构建好的 map-style 数据集对象。
-        本函数不会读取 rgb/depth 文件，只会利用 dataset.records 中的标签信息。
-
-    tier_for_sampling : str or None
-        指定按哪一层标签做重采样，可选:
-            - "tier1"
-            - "tier2"
-            - "tier3"
-        若为 None：
-            - 如果 dataset.cfg.tier_mode 是 "tier1"/"tier2"/"tier3"，则自动使用它
-            - 如果 dataset.cfg.tier_mode == "all"，默认使用 "tier3"
-
-    mode : str
-        类别权重构造方式：
-            - "inv"      : weight = 1 / count
-            - "sqrt_inv" : weight = 1 / sqrt(count)
-        一般推荐先用 "sqrt_inv"，更稳，不容易过度重采样少数类。
-
-    replacement : bool
-        是否有放回采样。类别不平衡场景下通常应设为 True。
-
-    num_samples : int or None
-        一个 epoch 抽取多少个样本。
-        若为 None，则默认等于 len(dataset)。
-
-    verbose : bool
-        是否打印一些统计信息。
-
-    返回
-    ----
-    sampler : WeightedRandomSampler
-        可直接传给 DataLoader(..., sampler=sampler, shuffle=False)
-
-    info : dict
-        调试信息，包括：
-            - tier_for_sampling
-            - labels
-            - class_counts
-            - class_weights
-            - sample_weights
-            - num_samples
-    """
-    if not hasattr(dataset, "records"):
-        raise TypeError("dataset must have attribute 'records'.")
-
-    if not hasattr(dataset, "label_map"):
-        raise TypeError("dataset must have attribute 'label_map'.")
-
-    if not hasattr(dataset, "cfg"):
-        raise TypeError("dataset must have attribute 'cfg'.")
-
-    # --------------------------------------------------------
-    # 1) 自动决定按哪个 tier 做采样
-    # --------------------------------------------------------
-    if tier_for_sampling is None:
-        if dataset.cfg.tier_mode in ("tier1", "tier2", "tier3"):
-            tier_for_sampling = dataset.cfg.tier_mode
-        else:
-            # tier_mode == "all" 时，默认按最细粒度 tier3 采样
-            tier_for_sampling = "tier3"
-
-    if tier_for_sampling not in ("tier1", "tier2", "tier3"):
-        raise ValueError(
-            f"tier_for_sampling must be one of ('tier1','tier2','tier3'), "
-            f"got {tier_for_sampling}"
-        )
-
-    if tier_for_sampling not in dataset.label_map:
-        raise KeyError(f"dataset.label_map does not contain key '{tier_for_sampling}'")
-
-    tier_label_map = dataset.label_map[tier_for_sampling]
-
-    # --------------------------------------------------------
-    # 2) 从 manifest records 中提取每个样本的整数标签
-    #    注意：这里完全不走 __getitem__，避免真的加载视频文件
-    # --------------------------------------------------------
-    labels = []
-    bad_indices = []
-
-    for i, rec in enumerate(dataset.records):
-        action_name = rec.get(tier_for_sampling, None)
-
-        if action_name is None:
-            bad_indices.append(i)
-            labels.append(-1)
-            continue
-
-        action_name = str(action_name)
-        class_id = tier_label_map.get(action_name, -1)
-
-        if class_id < 0:
-            bad_indices.append(i)
-
-        labels.append(int(class_id))
-
-    if len(bad_indices) > 0:
-        raise ValueError(
-            f"Found {len(bad_indices)} samples with invalid label for {tier_for_sampling}. "
-            f"Example bad indices: {bad_indices[:10]}"
-        )
-
-    labels = torch.as_tensor(labels, dtype=torch.long)
-
-    # --------------------------------------------------------
-    # 3) 统计当前 dataset 内各类别样本数
-    #    这里按“当前 split 中实际存在的样本”统计，而不是外部写死统计表
-    # --------------------------------------------------------
-    counter = Counter(labels.tolist())
-
-    if len(counter) == 0:
-        raise RuntimeError("No valid labels found for weighted sampling.")
-
-    max_class_id = max(counter.keys())
-    class_counts_tensor = torch.zeros(max_class_id + 1, dtype=torch.long)
-
-    for cls_id, cnt in counter.items():
-        class_counts_tensor[cls_id] = int(cnt)
-
-    # --------------------------------------------------------
-    # 4) 构造类别权重
-    # --------------------------------------------------------
-    class_weights = torch.zeros_like(class_counts_tensor, dtype=torch.double)
-
-    for cls_id, cnt in counter.items():
-        if cnt <= 0:
-            raise ValueError(f"Invalid class count for class {cls_id}: {cnt}")
-
-        if mode == "inv":
-            w = 1.0 / float(cnt)
-        elif mode == "sqrt_inv":
-            w = 1.0 / (float(cnt) ** 0.5)
-        else:
-            raise ValueError(f"Unsupported mode: {mode}. Use 'inv' or 'sqrt_inv'.")
-
-        class_weights[cls_id] = w
-
-    # --------------------------------------------------------
-    # 5) 映射为每个样本的权重
-    # --------------------------------------------------------
-    sample_weights = class_weights[labels]   # [N]
-    sample_weights = sample_weights.to(torch.double)
-
-    # --------------------------------------------------------
-    # 6) num_samples 默认等于数据集长度
-    # --------------------------------------------------------
-    if num_samples is None:
-        num_samples = len(dataset)
-
-    sampler = WeightedRandomSampler(
-        weights=sample_weights,
-        num_samples=num_samples,
-        replacement=replacement,
-    )
-
-    info = {
-        "tier_for_sampling": tier_for_sampling,
-        "labels": labels,
-        "class_counts": counter,
-        "class_weights": class_weights,
-        "sample_weights": sample_weights,
-        "num_samples": num_samples,
-    }
-
-    if verbose:
-        print(f"[WeightedSampler] tier_for_sampling = {tier_for_sampling}")
-        print(f"[WeightedSampler] mode = {mode}")
-        print(f"[WeightedSampler] replacement = {replacement}")
-        print(f"[WeightedSampler] num_samples = {num_samples}")
-        print(f"[WeightedSampler] num_classes_in_split = {len(counter)}")
-        print(f"[WeightedSampler] class_counts = {dict(sorted(counter.items()))}")
-
-    return sampler, info
+# WeightedRandomSampler 和 ClassBalancedBatchSampler 已经移动到 utils_.sampler。
+# 本文件顶部保留了导入，用于兼容旧 import 路径。
 
 
 #  ============================================================
