@@ -211,15 +211,28 @@ echo ============================================================
 echo Running signal=!CUR_SIGNAL! aug=!CUR_AUG_POLICY! target_len=!CUR_TARGET_LEN!
 echo ============================================================
 
+if /I "!CUR_SIGNAL!"=="emg" (
+    set "CUR_PROTO_REL_PREM=0.3"
+    set "CUR_PROTO_REL_PROTO=1"
+    set "CUR_PROTO_REL_RUN_NAME=suploss_proto_rel_p1_prem0.3"
+) else if /I "!CUR_SIGNAL!"=="imu" (
+    set "CUR_PROTO_REL_PREM=0.3"
+    set "CUR_PROTO_REL_PROTO=2"
+    set "CUR_PROTO_REL_RUN_NAME=suploss_proto_rel_p2_prem0.3"
+) else (
+    echo [Error] Unsupported signal for proto-rel config: !CUR_SIGNAL!
+    exit /b 1
+)
+
 for %%K in (%K_QUEUE_VALUES%) do (
     call :run_one_cfg "!CUR_SIGNAL!" "contrastive_only" "" "1" "suploss_only" "%%K" "balanced_batch" "%SAMPLER_TYPE_ARG%"
     if errorlevel 1 exit /b 1
 
-    call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto_rel" "0.5" "3" "suploss_proto_rel_p3_prem0.5" "%%K" "balanced_batch" "%SAMPLER_TYPE_ARG%"
+    call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto_rel" "!CUR_PROTO_REL_PREM!" "!CUR_PROTO_REL_PROTO!" "!CUR_PROTO_REL_RUN_NAME!" "%%K" "balanced_batch" "%SAMPLER_TYPE_ARG%"
     if errorlevel 1 exit /b 1
 )
 
-call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto_rel" "0.5" "3" "suploss_proto_rel_p3_prem0.5" "1024" "random" "%RANDOM_SAMPLER_TYPE_ARG%"
+call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto_rel" "!CUR_PROTO_REL_PREM!" "!CUR_PROTO_REL_PROTO!" "!CUR_PROTO_REL_RUN_NAME!" "1024" "random" "%RANDOM_SAMPLER_TYPE_ARG%"
 if errorlevel 1 exit /b 1
 
 exit /b 0
