@@ -129,7 +129,6 @@ set "KEEP_PRETRAINED_HEAD_ARG="
 set "PRETRAINED_STRICT_ARG="
 set "PRETRAINED_TAG_MODE=relative_to_anchor"
 set "PRETRAINED_TAG_LAST_K=3"
-set "PRETRAINED_TAG_ANCHOR=mindrove_N_except_take_put_adamw_sampler_18"
 
 REM ============================================================
 REM 9) Class imbalance / loss options
@@ -212,6 +211,7 @@ exit /b 0
 :run_signal
 set "RG_SIGNAL=%~1"
 set "ROOT_DIR=%~2"
+set "PRETRAINED_TAG_ANCHOR=signal_!RG_SIGNAL!"
 call :set_signal_cfg "!RG_SIGNAL!"
 if errorlevel 1 exit /b 1
 if "!ROOT_DIR!"=="" (
