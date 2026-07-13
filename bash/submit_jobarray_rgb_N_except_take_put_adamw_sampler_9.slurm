@@ -11,8 +11,8 @@
 #SBATCH --mail-user=jzhang319@sheffield.ac.uk
 #SBATCH --mail-type=ALL
 #SBATCH --array=0-8%4
-#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_%x_%A_%a.out
-#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_%x_%A_%a.err
+#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_batch_sampler_%x_%A_%a.out
+#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_batch_sampler_%x_%A_%a.err
 
 set -euo pipefail
 
