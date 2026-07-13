@@ -306,6 +306,17 @@ parser.add_argument(
 )
 # ---------------- RGB normalization 参数（由 loader 内部 Normalize 使用） ----------------
 parser.add_argument(
+    "--rgb_camera_id",
+    type=str,
+    default="00143",
+    help=(
+        "RGB camera to load from manifest. Supported aliases: "
+        "00143/cam_001431512812/rgb_cam_00143 or "
+        "00152/cam_001528512812/rgb_cam_00152."
+    ),
+)
+
+parser.add_argument(
     "--rgb_mean",
     nargs=3,
     type=float,
@@ -1655,6 +1666,7 @@ def build_mapstyle_cfg(args, is_train: bool):
         # -------- common --------
         n_frames=args.n_frames,
         rgb_two_views=False,
+        rgb_camera_id=args.rgb_camera_id,
         use_modalities=use_modalities,
         missing_policy="skip",
         load_labels=True,

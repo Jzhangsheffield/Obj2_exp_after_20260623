@@ -1,51 +1,51 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
 train_rgb_signal_fusion_finetune_and_test.py
 
-RGB + MindRove Signal 多模态融合分类训练 / 微调 / 测试脚本。
+RGB + MindRove Signal å¤šæ¨¡æ€èžåˆåˆ†ç±»è®­ç»ƒ / å¾®è°ƒ / æµ‹è¯•è„šæœ¬ã€‚
 
-相较于原单模态 train_mapstyle_finetune_and_test.py，本脚本实现：
-1) RGB 使用 ResNet3D backbone
-2) Signal 使用 ResNet1D backbone；EMG 与 IMU 可以分别使用独立 backbone
-3) RGB / EMG / IMU backbone 可分别加载对比学习预训练权重（默认自动丢掉对比头 / 分类头）
-4) 多路 pooled feature 送入可选融合模块：
+ç›¸è¾ƒäºŽåŽŸå•æ¨¡æ€ train_mapstyle_finetune_and_test.pyï¼Œæœ¬è„šæœ¬å®žçŽ°ï¼š
+1) RGB ä½¿ç”¨ ResNet3D backbone
+2) Signal ä½¿ç”¨ ResNet1D backboneï¼›EMG ä¸Ž IMU å¯ä»¥åˆ†åˆ«ä½¿ç”¨ç‹¬ç«‹ backbone
+3) RGB / EMG / IMU backbone å¯åˆ†åˆ«åŠ è½½å¯¹æ¯”å­¦ä¹ é¢„è®­ç»ƒæƒé‡ï¼ˆé»˜è®¤è‡ªåŠ¨ä¸¢æŽ‰å¯¹æ¯”å¤´ / åˆ†ç±»å¤´ï¼‰
+4) å¤šè·¯ pooled feature é€å…¥å¯é€‰èžåˆæ¨¡å—ï¼š
    - concat_mlp
    - gated
    - weighted_sum
-5) 融合后接统一分类头做分类
-6) 支持：
+5) èžåˆåŽæŽ¥ç»Ÿä¸€åˆ†ç±»å¤´åšåˆ†ç±»
+6) æ”¯æŒï¼š
    - train / test
    - full / fusion_head / head_only
    - weighted sampler / weighted CE / focal / AMP
-   - optimizer 可选 SGD / Adam
-   - 多组 manifest 与权重按顺序匹配或广播
-   - 保存 best_val / last / per-sample csv / summary csv
+   - optimizer å¯é€‰ SGD / Adam
+   - å¤šç»„ manifest ä¸Žæƒé‡æŒ‰é¡ºåºåŒ¹é…æˆ–å¹¿æ’­
+   - ä¿å­˜ best_val / last / per-sample csv / summary csv
 
-本版已按你当前的 mapstype_dataloader_with_index_mindrove.py 对齐，并补齐了 RGB / MindRove 标准化与完整增强参数：
-- PackedMultiModalConfig 使用字段：
+æœ¬ç‰ˆå·²æŒ‰ä½ å½“å‰çš„ mapstype_dataloader_with_index_mindrove.py å¯¹é½ï¼Œå¹¶è¡¥é½äº† RGB / MindRove æ ‡å‡†åŒ–ä¸Žå®Œæ•´å¢žå¼ºå‚æ•°ï¼š
+- PackedMultiModalConfig ä½¿ç”¨å­—æ®µï¼š
     n_frames, use_modalities, rgb_out_hw, depth_out_hw, mindrove_*
 - build_packed_mapstyle_dataset(..., manifest_name=..., cfg=...)
-- build_weighted_sampler_for_packed_dataset(...) 返回 (sampler, info)
-- batch["mindrove"] 为单视图 dict[str, Tensor[B,C,L]]
-- label_map_json 格式为：
+- build_weighted_sampler_for_packed_dataset(...) è¿”å›ž (sampler, info)
+- batch["mindrove"] ä¸ºå•è§†å›¾ dict[str, Tensor[B,C,L]]
+- label_map_json æ ¼å¼ä¸ºï¼š
     {
       "tier1": {"xxx": 0, ...},
       "tier2": {...},
       "tier3": {...}
     }
 
-重要约束
+é‡è¦çº¦æŸ
 ========
-1) 本脚本支持 RGB + EMG、RGB + IMU、RGB + EMG + IMU 三种融合输入
-2) 分类训练不使用 two-view：
+1) æœ¬è„šæœ¬æ”¯æŒ RGB + EMGã€RGB + IMUã€RGB + EMG + IMU ä¸‰ç§èžåˆè¾“å…¥
+2) åˆ†ç±»è®­ç»ƒä¸ä½¿ç”¨ two-viewï¼š
    - rgb_two_views = False
    - mindrove_two_views = False
-3) 需要你的：
-   - ResNet3D backbone 提供 forward_features(x) -> [B,D]
-   - ResNet1D backbone 提供 forward_features(x) -> [B,D]
-4) 测试模式下，输入的 test_weight_paths 应该是“完整融合分类模型权重”。测试时的 signal_types、fusion_type、backbone 配置必须与训练保存权重时一致。
+3) éœ€è¦ä½ çš„ï¼š
+   - ResNet3D backbone æä¾› forward_features(x) -> [B,D]
+   - ResNet1D backbone æä¾› forward_features(x) -> [B,D]
+4) æµ‹è¯•æ¨¡å¼ä¸‹ï¼Œè¾“å…¥çš„ test_weight_paths åº”è¯¥æ˜¯â€œå®Œæ•´èžåˆåˆ†ç±»æ¨¡åž‹æƒé‡â€ã€‚æµ‹è¯•æ—¶çš„ signal_typesã€fusion_typeã€backbone é…ç½®å¿…é¡»ä¸Žè®­ç»ƒä¿å­˜æƒé‡æ—¶ä¸€è‡´ã€‚
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ from fusion_module.weighted_sum import WeightedSumFusion
 from utils_.log_training_dynamics import TrainingDynamicsLogger
 from loss.focal_loss import FocalLoss
 
-from utils_.mapstype_dataloader_with_index_mindrove import (
+from utils_.mapstype_dataloader_with_index_mindrove_modified_varlen import (
     PackedMultiModalConfig,
     load_label_map_json,
     build_packed_mapstyle_dataset,
@@ -116,7 +116,7 @@ parser.add_argument(
     "--test_manifest",
     nargs="+",
     default=[],
-    help="一个或多个测试 manifest；若只给 1 个，则广播给所有 test_weight_paths"
+    help="ä¸€ä¸ªæˆ–å¤šä¸ªæµ‹è¯• manifestï¼›è‹¥åªç»™ 1 ä¸ªï¼Œåˆ™å¹¿æ’­ç»™æ‰€æœ‰ test_weight_paths"
 )
 
 # ---------------- naming ----------------
@@ -133,8 +133,8 @@ parser.add_argument("--n_frames", type=int, default=16)
 
 parser.add_argument("--signal_type", type=str, default="emg", choices=["emg", "imu"],
                     help=(
-                        "向后兼容旧脚本的单信号参数。"
-                        "当没有显式提供 --signal_types 时，本参数决定使用 emg 或 imu。"
+                        "å‘åŽå…¼å®¹æ—§è„šæœ¬çš„å•ä¿¡å·å‚æ•°ã€‚"
+                        "å½“æ²¡æœ‰æ˜¾å¼æä¾› --signal_types æ—¶ï¼Œæœ¬å‚æ•°å†³å®šä½¿ç”¨ emg æˆ– imuã€‚"
                     ))
 parser.add_argument(
     "--signal_types",
@@ -142,10 +142,10 @@ parser.add_argument(
     default=None,
     choices=["emg", "imu"],
     help=(
-        "显式指定参与融合的 MindRove 信号列表。"
-        "例如：--signal_types emg imu 表示 RGB+EMG+IMU 三模态融合；"
-        "--signal_types emg 表示 RGB+EMG；--signal_types imu 表示 RGB+IMU。"
-        "如果不提供，则自动回退到旧参数 --signal_type。"
+        "æ˜¾å¼æŒ‡å®šå‚ä¸Žèžåˆçš„ MindRove ä¿¡å·åˆ—è¡¨ã€‚"
+        "ä¾‹å¦‚ï¼š--signal_types emg imu è¡¨ç¤º RGB+EMG+IMU ä¸‰æ¨¡æ€èžåˆï¼›"
+        "--signal_types emg è¡¨ç¤º RGB+EMGï¼›--signal_types imu è¡¨ç¤º RGB+IMUã€‚"
+        "å¦‚æžœä¸æä¾›ï¼Œåˆ™è‡ªåŠ¨å›žé€€åˆ°æ—§å‚æ•° --signal_typeã€‚"
     ),
 )
 
@@ -161,6 +161,17 @@ parser.add_argument("--disable_val", action="store_true")
 
 # ---------------- RGB spatial / depth size ----------------
 parser.add_argument("--rgb_size", type=int, default=224)
+parser.add_argument(
+    "--rgb_camera_id",
+    type=str,
+    default="00143",
+    help=(
+        "RGB camera to load from manifest. Supported aliases: "
+        "00143/cam_001431512812/rgb_cam_00143 or "
+        "00152/cam_001528512812/rgb_cam_00152."
+    ),
+)
+
 parser.add_argument("--depth_size", type=int, default=224)
 
 parser.add_argument("--rrc_scale_min", type=float, default=0.6)
@@ -169,15 +180,15 @@ parser.add_argument("--rrc_ratio_min", type=float, default=0.75)
 parser.add_argument("--rrc_ratio_max", type=float, default=1.3333333333)
 
 # ---------------- RGB normalization / augmentation ----------------
-# 这些参数与单模态脚本 train_mapstyle_finetune_and_test.py 保持一致，
-# 由 dataloader 内部的 RGB transform 使用；训练脚本本身不再重复 Normalize。
+# è¿™äº›å‚æ•°ä¸Žå•æ¨¡æ€è„šæœ¬ train_mapstyle_finetune_and_test.py ä¿æŒä¸€è‡´ï¼Œ
+# ç”± dataloader å†…éƒ¨çš„ RGB transform ä½¿ç”¨ï¼›è®­ç»ƒè„šæœ¬æœ¬èº«ä¸å†é‡å¤ Normalizeã€‚
 parser.add_argument(
     "--rgb_mean",
     nargs=3,
     type=float,
     default=[0.356, 0.363, 0.367],
     metavar=("R_MEAN", "G_MEAN", "B_MEAN"),
-    help="RGB Normalize 使用的 mean，顺序为 R G B。",
+    help="RGB Normalize ä½¿ç”¨çš„ meanï¼Œé¡ºåºä¸º R G Bã€‚",
 )
 parser.add_argument(
     "--rgb_std",
@@ -185,58 +196,58 @@ parser.add_argument(
     type=float,
     default=[0.288, 0.271, 0.270],
     metavar=("R_STD", "G_STD", "B_STD"),
-    help="RGB Normalize 使用的 std，顺序为 R G B，三个值必须为正数。",
+    help="RGB Normalize ä½¿ç”¨çš„ stdï¼Œé¡ºåºä¸º R G Bï¼Œä¸‰ä¸ªå€¼å¿…é¡»ä¸ºæ­£æ•°ã€‚",
 )
 parser.add_argument(
     "--rgb_apply_spatial_aug",
     action=argparse.BooleanOptionalAction,
     default=True,
     help=(
-        "训练集是否启用 RGB 随机空间增强中的 flip/jitter/gray/blur。"
-        "设为 False 时，RandomResizedCrop 仍由 rrc_scale/rrc_ratio 控制。"
+        "è®­ç»ƒé›†æ˜¯å¦å¯ç”¨ RGB éšæœºç©ºé—´å¢žå¼ºä¸­çš„ flip/jitter/gray/blurã€‚"
+        "è®¾ä¸º False æ—¶ï¼ŒRandomResizedCrop ä»ç”± rrc_scale/rrc_ratio æŽ§åˆ¶ã€‚"
     ),
 )
 parser.add_argument("--rgb_hflip_p", type=float, default=0.5,
-                    help="训练集 RGB RandomHorizontalFlip 概率。")
+                    help="è®­ç»ƒé›† RGB RandomHorizontalFlip æ¦‚çŽ‡ã€‚")
 parser.add_argument("--rgb_vflip_p", type=float, default=0.5,
-                    help="训练集 RGB RandomVerticalFlip 概率；机械操作视频通常建议设为 0。")
+                    help="è®­ç»ƒé›† RGB RandomVerticalFlip æ¦‚çŽ‡ï¼›æœºæ¢°æ“ä½œè§†é¢‘é€šå¸¸å»ºè®®è®¾ä¸º 0ã€‚")
 parser.add_argument("--rgb_jitter_p", type=float, default=0.5,
-                    help="训练集 RGB ColorJitter 被应用的概率。")
+                    help="è®­ç»ƒé›† RGB ColorJitter è¢«åº”ç”¨çš„æ¦‚çŽ‡ã€‚")
 parser.add_argument("--rgb_jitter_brightness", type=float, default=0.24,
-                    help="ColorJitter brightness 强度。")
+                    help="ColorJitter brightness å¼ºåº¦ã€‚")
 parser.add_argument("--rgb_jitter_contrast", type=float, default=0.24,
-                    help="ColorJitter contrast 强度。")
+                    help="ColorJitter contrast å¼ºåº¦ã€‚")
 parser.add_argument("--rgb_jitter_saturation", type=float, default=0.24,
-                    help="ColorJitter saturation 强度。")
+                    help="ColorJitter saturation å¼ºåº¦ã€‚")
 parser.add_argument("--rgb_jitter_hue", type=float, default=0.16,
-                    help="ColorJitter hue 强度；torchvision 通常要求不超过 0.5。")
+                    help="ColorJitter hue å¼ºåº¦ï¼›torchvision é€šå¸¸è¦æ±‚ä¸è¶…è¿‡ 0.5ã€‚")
 parser.add_argument("--rgb_gray_p", type=float, default=0.2,
-                    help="训练集 RGB RandomGrayscale 概率。")
+                    help="è®­ç»ƒé›† RGB RandomGrayscale æ¦‚çŽ‡ã€‚")
 parser.add_argument("--rgb_blur_p", type=float, default=0.5,
-                    help="训练集 RGB GaussianBlur 被应用的概率。")
+                    help="è®­ç»ƒé›† RGB GaussianBlur è¢«åº”ç”¨çš„æ¦‚çŽ‡ã€‚")
 parser.add_argument("--rgb_blur_kernel", type=int, default=7,
-                    help="GaussianBlur kernel size，必须是 >=3 的奇数。")
+                    help="GaussianBlur kernel sizeï¼Œå¿…é¡»æ˜¯ >=3 çš„å¥‡æ•°ã€‚")
 parser.add_argument("--rgb_blur_sigma_min", type=float, default=0.1,
-                    help="GaussianBlur sigma 下界。")
+                    help="GaussianBlur sigma ä¸‹ç•Œã€‚")
 parser.add_argument("--rgb_blur_sigma_max", type=float, default=1.0,
-                    help="GaussianBlur sigma 上界。")
+                    help="GaussianBlur sigma ä¸Šç•Œã€‚")
 parser.add_argument(
     "--disable_train_augmentation",
     action="store_true",
     help=(
-        "统一关闭训练集增强。启用后：RGB 的 RandomResizedCrop 退化为不裁剪，"
-        "flip/jitter/gray/blur 概率全部置 0；MindRove 样本级增强也会关闭。"
-        "验证/测试集本来就不启用训练增强。"
+        "ç»Ÿä¸€å…³é—­è®­ç»ƒé›†å¢žå¼ºã€‚å¯ç”¨åŽï¼šRGB çš„ RandomResizedCrop é€€åŒ–ä¸ºä¸è£å‰ªï¼Œ"
+        "flip/jitter/gray/blur æ¦‚çŽ‡å…¨éƒ¨ç½® 0ï¼›MindRove æ ·æœ¬çº§å¢žå¼ºä¹Ÿä¼šå…³é—­ã€‚"
+        "éªŒè¯/æµ‹è¯•é›†æœ¬æ¥å°±ä¸å¯ç”¨è®­ç»ƒå¢žå¼ºã€‚"
     ),
 )
 
 # ---------------- MindRove ----------------
 parser.add_argument("--mindrove_target_len", type=int, default=256,
-                    help="MindRove 默认重采样长度；当 EMG/IMU 单独长度未设置时使用它。")
+                    help="MindRove é»˜è®¤é‡é‡‡æ ·é•¿åº¦ï¼›å½“ EMG/IMU å•ç‹¬é•¿åº¦æœªè®¾ç½®æ—¶ä½¿ç”¨å®ƒã€‚")
 parser.add_argument("--mindrove_emg_target_len", type=int, default=None,
-                    help="EMG 单独重采样长度；若不设置，则回退到 --mindrove_target_len。")
+                    help="EMG å•ç‹¬é‡é‡‡æ ·é•¿åº¦ï¼›è‹¥ä¸è®¾ç½®ï¼Œåˆ™å›žé€€åˆ° --mindrove_target_lenã€‚")
 parser.add_argument("--mindrove_imu_target_len", type=int, default=None,
-                    help="IMU 单独重采样长度；若不设置，则回退到 --mindrove_target_len。")
+                    help="IMU å•ç‹¬é‡é‡‡æ ·é•¿åº¦ï¼›è‹¥ä¸è®¾ç½®ï¼Œåˆ™å›žé€€åˆ° --mindrove_target_lenã€‚")
 parser.add_argument("--mindrove_hands", nargs="+", default=["left", "right"],
                     choices=["left", "right"])
 parser.add_argument("--mindrove_merge_hands", action="store_true")
@@ -244,32 +255,32 @@ parser.add_argument(
     "--mindrove_apply_augmentation",
     action=argparse.BooleanOptionalAction,
     default=True,
-    help="训练集是否启用 MindRove 样本级增强；验证/测试集会由 dataloader 自动关闭"
+    help="è®­ç»ƒé›†æ˜¯å¦å¯ç”¨ MindRove æ ·æœ¬çº§å¢žå¼ºï¼›éªŒè¯/æµ‹è¯•é›†ä¼šç”± dataloader è‡ªåŠ¨å…³é—­"
 )
 parser.add_argument(
     "--mindrove_apply_normalization",
     action=argparse.BooleanOptionalAction,
     default=False,
-    help="是否在重采样后、增强前，对 MindRove 做 per-channel mean/std 标准化"
+    help="æ˜¯å¦åœ¨é‡é‡‡æ ·åŽã€å¢žå¼ºå‰ï¼Œå¯¹ MindRove åš per-channel mean/std æ ‡å‡†åŒ–"
 )
 
 # ---------------- MindRove normalization stats ----------------
 parser.add_argument("--mindrove_left_emg_mean", nargs="+", type=float, default=None,
-                    help="左手 EMG 的 per-channel mean，长度必须为 8")
+                    help="å·¦æ‰‹ EMG çš„ per-channel meanï¼Œé•¿åº¦å¿…é¡»ä¸º 8")
 parser.add_argument("--mindrove_left_emg_std", nargs="+", type=float, default=None,
-                    help="左手 EMG 的 per-channel std，长度必须为 8")
+                    help="å·¦æ‰‹ EMG çš„ per-channel stdï¼Œé•¿åº¦å¿…é¡»ä¸º 8")
 parser.add_argument("--mindrove_right_emg_mean", nargs="+", type=float, default=None,
-                    help="右手 EMG 的 per-channel mean，长度必须为 8")
+                    help="å³æ‰‹ EMG çš„ per-channel meanï¼Œé•¿åº¦å¿…é¡»ä¸º 8")
 parser.add_argument("--mindrove_right_emg_std", nargs="+", type=float, default=None,
-                    help="右手 EMG 的 per-channel std，长度必须为 8")
+                    help="å³æ‰‹ EMG çš„ per-channel stdï¼Œé•¿åº¦å¿…é¡»ä¸º 8")
 parser.add_argument("--mindrove_left_imu_mean", nargs="+", type=float, default=None,
-                    help="左手 IMU 的 per-channel mean，长度必须为 6")
+                    help="å·¦æ‰‹ IMU çš„ per-channel meanï¼Œé•¿åº¦å¿…é¡»ä¸º 6")
 parser.add_argument("--mindrove_left_imu_std", nargs="+", type=float, default=None,
-                    help="左手 IMU 的 per-channel std，长度必须为 6")
+                    help="å·¦æ‰‹ IMU çš„ per-channel stdï¼Œé•¿åº¦å¿…é¡»ä¸º 6")
 parser.add_argument("--mindrove_right_imu_mean", nargs="+", type=float, default=None,
-                    help="右手 IMU 的 per-channel mean，长度必须为 6")
+                    help="å³æ‰‹ IMU çš„ per-channel meanï¼Œé•¿åº¦å¿…é¡»ä¸º 6")
 parser.add_argument("--mindrove_right_imu_std", nargs="+", type=float, default=None,
-                    help="右手 IMU 的 per-channel std，长度必须为 6")
+                    help="å³æ‰‹ IMU çš„ per-channel stdï¼Œé•¿åº¦å¿…é¡»ä¸º 6")
 
 # ---------------- MindRove augmentation params ----------------
 parser.add_argument("--mindrove_time_warp_prob", type=float, default=0.5)
@@ -283,9 +294,9 @@ parser.add_argument("--mindrove_emg_noise_prob", type=float, default=0.8)
 parser.add_argument("--mindrove_emg_noise_sigma", type=float, default=0.05)
 parser.add_argument("--mindrove_emg_drift_prob", type=float, default=0.0)
 parser.add_argument("--mindrove_emg_drift_max", nargs="+", type=float, default=[0.0],
-                    help="EMG drift 的最大幅值；传 1 个值表示固定幅值，传 2 个值表示 [low, high]")
+                    help="EMG drift çš„æœ€å¤§å¹…å€¼ï¼›ä¼  1 ä¸ªå€¼è¡¨ç¤ºå›ºå®šå¹…å€¼ï¼Œä¼  2 ä¸ªå€¼è¡¨ç¤º [low, high]")
 parser.add_argument("--mindrove_emg_drift_n_points", nargs="+", type=int, default=[3],
-                    help="EMG drift 控制点数；传 1 个值表示固定值，传多个值表示候选列表")
+                    help="EMG drift æŽ§åˆ¶ç‚¹æ•°ï¼›ä¼  1 ä¸ªå€¼è¡¨ç¤ºå›ºå®šå€¼ï¼Œä¼ å¤šä¸ªå€¼è¡¨ç¤ºå€™é€‰åˆ—è¡¨")
 parser.add_argument("--mindrove_emg_drift_kind", type=str, default="additive",
                     choices=["additive", "multiplicative"])
 parser.add_argument("--mindrove_emg_drift_per_channel", action=argparse.BooleanOptionalAction, default=False)
@@ -300,9 +311,9 @@ parser.add_argument("--mindrove_imu_noise_prob", type=float, default=0.8)
 parser.add_argument("--mindrove_imu_noise_sigma", type=float, default=0.05)
 parser.add_argument("--mindrove_imu_drift_prob", type=float, default=0.0)
 parser.add_argument("--mindrove_imu_drift_max", nargs="+", type=float, default=[0.0],
-                    help="IMU drift 的最大幅值；传 1 个值表示固定幅值，传 2 个值表示 [low, high]")
+                    help="IMU drift çš„æœ€å¤§å¹…å€¼ï¼›ä¼  1 ä¸ªå€¼è¡¨ç¤ºå›ºå®šå¹…å€¼ï¼Œä¼  2 ä¸ªå€¼è¡¨ç¤º [low, high]")
 parser.add_argument("--mindrove_imu_drift_n_points", nargs="+", type=int, default=[3],
-                    help="IMU drift 控制点数；传 1 个值表示固定值，传多个值表示候选列表")
+                    help="IMU drift æŽ§åˆ¶ç‚¹æ•°ï¼›ä¼  1 ä¸ªå€¼è¡¨ç¤ºå›ºå®šå€¼ï¼Œä¼ å¤šä¸ªå€¼è¡¨ç¤ºå€™é€‰åˆ—è¡¨")
 parser.add_argument("--mindrove_imu_drift_kind", type=str, default="additive",
                     choices=["additive", "multiplicative"])
 parser.add_argument("--mindrove_imu_drift_per_channel", action=argparse.BooleanOptionalAction, default=False)
@@ -365,8 +376,8 @@ parser.add_argument(
     default="sgd",
     choices=["sgd", "adam"],
     help=(
-        "选择优化器。sgd 使用 torch.optim.SGD 并使用 momentum；"
-        "adam 使用 torch.optim.Adam，不使用 momentum。"
+        "é€‰æ‹©ä¼˜åŒ–å™¨ã€‚sgd ä½¿ç”¨ torch.optim.SGD å¹¶ä½¿ç”¨ momentumï¼›"
+        "adam ä½¿ç”¨ torch.optim.Adamï¼Œä¸ä½¿ç”¨ momentumã€‚"
     ),
 )
 parser.add_argument("--cos", action="store_true")
@@ -399,22 +410,22 @@ parser.add_argument(
     nargs="*",
     default=[],
     help=(
-        "向后兼容旧脚本的单 signal backbone 预训练权重列表。"
-        "仅当最终只选择一个 signal_type 时使用；"
-        "如果使用 RGB+EMG+IMU，请分别使用 --emg_pretrained_weight_paths 和 --imu_pretrained_weight_paths。"
+        "å‘åŽå…¼å®¹æ—§è„šæœ¬çš„å• signal backbone é¢„è®­ç»ƒæƒé‡åˆ—è¡¨ã€‚"
+        "ä»…å½“æœ€ç»ˆåªé€‰æ‹©ä¸€ä¸ª signal_type æ—¶ä½¿ç”¨ï¼›"
+        "å¦‚æžœä½¿ç”¨ RGB+EMG+IMUï¼Œè¯·åˆ†åˆ«ä½¿ç”¨ --emg_pretrained_weight_paths å’Œ --imu_pretrained_weight_pathsã€‚"
     ),
 )
 parser.add_argument(
     "--emg_pretrained_weight_paths",
     nargs="*",
     default=[],
-    help="EMG backbone 的预训练权重列表；可为 0/1/N 个，0 表示该分支 scratch，1 表示广播。",
+    help="EMG backbone çš„é¢„è®­ç»ƒæƒé‡åˆ—è¡¨ï¼›å¯ä¸º 0/1/N ä¸ªï¼Œ0 è¡¨ç¤ºè¯¥åˆ†æ”¯ scratchï¼Œ1 è¡¨ç¤ºå¹¿æ’­ã€‚",
 )
 parser.add_argument(
     "--imu_pretrained_weight_paths",
     nargs="*",
     default=[],
-    help="IMU backbone 的预训练权重列表；可为 0/1/N 个，0 表示该分支 scratch，1 表示广播。",
+    help="IMU backbone çš„é¢„è®­ç»ƒæƒé‡åˆ—è¡¨ï¼›å¯ä¸º 0/1/N ä¸ªï¼Œ0 è¡¨ç¤ºè¯¥åˆ†æ”¯ scratchï¼Œ1 è¡¨ç¤ºå¹¿æ’­ã€‚",
 )
 parser.add_argument("--include_scratch_baseline", action="store_true")
 
@@ -521,16 +532,16 @@ def broadcast_or_match(values: List[Any], target_len: int, name: str, allow_empt
 
 def get_selected_signal_types(args) -> List[str]:
     """
-    统一解析当前实验要使用哪些 MindRove signal 分支。
+    ç»Ÿä¸€è§£æžå½“å‰å®žéªŒè¦ä½¿ç”¨å“ªäº› MindRove signal åˆ†æ”¯ã€‚
 
-    兼容策略
+    å…¼å®¹ç­–ç•¥
     --------
-    1) 新接口：--signal_types emg imu
-       - 用于 RGB+EMG+IMU 三模态融合，也可只传 emg 或 imu。
-    2) 旧接口：--signal_type emg / --signal_type imu
-       - 当 --signal_types 没有显式提供时自动使用，保证旧命令不需要修改。
+    1) æ–°æŽ¥å£ï¼š--signal_types emg imu
+       - ç”¨äºŽ RGB+EMG+IMU ä¸‰æ¨¡æ€èžåˆï¼Œä¹Ÿå¯åªä¼  emg æˆ– imuã€‚
+    2) æ—§æŽ¥å£ï¼š--signal_type emg / --signal_type imu
+       - å½“ --signal_types æ²¡æœ‰æ˜¾å¼æä¾›æ—¶è‡ªåŠ¨ä½¿ç”¨ï¼Œä¿è¯æ—§å‘½ä»¤ä¸éœ€è¦ä¿®æ”¹ã€‚
 
-    返回值始终是去重且保持用户输入顺序的 list，例如 ["emg", "imu"]。
+    è¿”å›žå€¼å§‹ç»ˆæ˜¯åŽ»é‡ä¸”ä¿æŒç”¨æˆ·è¾“å…¥é¡ºåºçš„ listï¼Œä¾‹å¦‚ ["emg", "imu"]ã€‚
     """
     raw = args.signal_types if args.signal_types is not None and len(args.signal_types) > 0 else [args.signal_type]
     out: List[str] = []
@@ -547,29 +558,29 @@ def get_selected_signal_types(args) -> List[str]:
 
 def get_fusion_modality_names(args) -> List[str]:
     """
-    返回送入 fusion module 的模态顺序。
+    è¿”å›žé€å…¥ fusion module çš„æ¨¡æ€é¡ºåºã€‚
 
-    这个顺序必须在以下位置保持一致：
+    è¿™ä¸ªé¡ºåºå¿…é¡»åœ¨ä»¥ä¸‹ä½ç½®ä¿æŒä¸€è‡´ï¼š
     - build_fusion_module(input_dims)
     - RGBSignalFusionNet.forward()
-    - per-sample CSV 中解析 gated / weighted_sum 权重
+    - per-sample CSV ä¸­è§£æž gated / weighted_sum æƒé‡
     """
     return ["rgb"] + get_selected_signal_types(args)
 
 
 def get_signal_pretrained_lists(args) -> Dict[str, List[str]]:
     """
-    返回每个 signal 分支的预训练权重列表。
+    è¿”å›žæ¯ä¸ª signal åˆ†æ”¯çš„é¢„è®­ç»ƒæƒé‡åˆ—è¡¨ã€‚
 
-    兼容规则
+    å…¼å®¹è§„åˆ™
     --------
-    - 如果只选择一个 signal，例如 --signal_types emg 或旧的 --signal_type emg，
-      则可以继续使用旧参数 --signal_pretrained_weight_paths。
-    - 如果选择两个 signal，即 RGB+EMG+IMU，则必须用：
+    - å¦‚æžœåªé€‰æ‹©ä¸€ä¸ª signalï¼Œä¾‹å¦‚ --signal_types emg æˆ–æ—§çš„ --signal_type emgï¼Œ
+      åˆ™å¯ä»¥ç»§ç»­ä½¿ç”¨æ—§å‚æ•° --signal_pretrained_weight_pathsã€‚
+    - å¦‚æžœé€‰æ‹©ä¸¤ä¸ª signalï¼Œå³ RGB+EMG+IMUï¼Œåˆ™å¿…é¡»ç”¨ï¼š
         --emg_pretrained_weight_paths
         --imu_pretrained_weight_paths
-      分别指定两条 1D backbone 的权重，避免把一个列表误配到两个分支。
-    - 某个列表为空表示该分支从 scratch 初始化。
+      åˆ†åˆ«æŒ‡å®šä¸¤æ¡ 1D backbone çš„æƒé‡ï¼Œé¿å…æŠŠä¸€ä¸ªåˆ—è¡¨è¯¯é…åˆ°ä¸¤ä¸ªåˆ†æ”¯ã€‚
+    - æŸä¸ªåˆ—è¡¨ä¸ºç©ºè¡¨ç¤ºè¯¥åˆ†æ”¯ä»Ž scratch åˆå§‹åŒ–ã€‚
     """
     selected = get_selected_signal_types(args)
     generic = list(args.signal_pretrained_weight_paths or [])
@@ -601,18 +612,18 @@ def get_signal_pretrained_lists(args) -> Dict[str, List[str]]:
 
 def infer_pretrained_run_count(args) -> int:
     """
-    根据所有 active branch 的预训练权重列表推断实验数量 N。
+    æ ¹æ®æ‰€æœ‰ active branch çš„é¢„è®­ç»ƒæƒé‡åˆ—è¡¨æŽ¨æ–­å®žéªŒæ•°é‡ Nã€‚
 
-    规则
+    è§„åˆ™
     ----
-    - 所有权重列表都为空：N=0，表示只跑 scratch。
-    - 非空列表长度可以是 1 或 N：长度 1 会广播，长度 N 会逐项匹配。
-    - 多个非空列表若长度不一致，且都不是 1，则报错。
+    - æ‰€æœ‰æƒé‡åˆ—è¡¨éƒ½ä¸ºç©ºï¼šN=0ï¼Œè¡¨ç¤ºåªè·‘ scratchã€‚
+    - éžç©ºåˆ—è¡¨é•¿åº¦å¯ä»¥æ˜¯ 1 æˆ– Nï¼šé•¿åº¦ 1 ä¼šå¹¿æ’­ï¼Œé•¿åº¦ N ä¼šé€é¡¹åŒ¹é…ã€‚
+    - å¤šä¸ªéžç©ºåˆ—è¡¨è‹¥é•¿åº¦ä¸ä¸€è‡´ï¼Œä¸”éƒ½ä¸æ˜¯ 1ï¼Œåˆ™æŠ¥é”™ã€‚
 
-    这样可以支持：
-    - 只给 RGB 权重，EMG/IMU scratch；
-    - 给 RGB/EMG/IMU 各 N 个权重并一一匹配；
-    - 给某个分支 1 个权重并广播到 N 个实验。
+    è¿™æ ·å¯ä»¥æ”¯æŒï¼š
+    - åªç»™ RGB æƒé‡ï¼ŒEMG/IMU scratchï¼›
+    - ç»™ RGB/EMG/IMU å„ N ä¸ªæƒé‡å¹¶ä¸€ä¸€åŒ¹é…ï¼›
+    - ç»™æŸä¸ªåˆ†æ”¯ 1 ä¸ªæƒé‡å¹¶å¹¿æ’­åˆ° N ä¸ªå®žéªŒã€‚
     """
     path_lists: List[List[str]] = [list(args.rgb_pretrained_weight_paths or [])]
     path_lists.extend(get_signal_pretrained_lists(args).values())
@@ -631,11 +642,11 @@ def infer_pretrained_run_count(args) -> int:
 
 def broadcast_optional_weight_list(values: Sequence[str], target_len: int, name: str) -> List[Optional[str]]:
     """
-    把某个分支的预训练权重列表对齐到 target_len。
+    æŠŠæŸä¸ªåˆ†æ”¯çš„é¢„è®­ç»ƒæƒé‡åˆ—è¡¨å¯¹é½åˆ° target_lenã€‚
 
-    - len=0 -> [None] * target_len，表示该分支 scratch。
-    - len=1 -> 广播。
-    - len=target_len -> 一一匹配。
+    - len=0 -> [None] * target_lenï¼Œè¡¨ç¤ºè¯¥åˆ†æ”¯ scratchã€‚
+    - len=1 -> å¹¿æ’­ã€‚
+    - len=target_len -> ä¸€ä¸€åŒ¹é…ã€‚
     """
     values = [x for x in values if x]
     if len(values) == 0:
@@ -648,11 +659,11 @@ def broadcast_optional_weight_list(values: Sequence[str], target_len: int, name:
 
 def resolve_manifest_arg(dataset_root: str, manifest_arg: str) -> str:
     """
-    兼容：
-    1) 直接给绝对路径
-    2) 给相对 dataset_root 的路径
-    3) 只给文件名
-    返回给 loader 的 manifest_name 字符串。
+    å…¼å®¹ï¼š
+    1) ç›´æŽ¥ç»™ç»å¯¹è·¯å¾„
+    2) ç»™ç›¸å¯¹ dataset_root çš„è·¯å¾„
+    3) åªç»™æ–‡ä»¶å
+    è¿”å›žç»™ loader çš„ manifest_name å­—ç¬¦ä¸²ã€‚
     """
     p = Path(manifest_arg)
     if p.is_absolute():
@@ -667,9 +678,9 @@ def resolve_manifest_arg(dataset_root: str, manifest_arg: str) -> str:
 
 def validate_args(args) -> None:
     # ------------------------------------------------------------
-    # RGB transform 参数检查
+    # RGB transform å‚æ•°æ£€æŸ¥
     # ------------------------------------------------------------
-    # 这些检查提前发现命令行错误，避免 dataloader 构建到一半才报错。
+    # è¿™äº›æ£€æŸ¥æå‰å‘çŽ°å‘½ä»¤è¡Œé”™è¯¯ï¼Œé¿å… dataloader æž„å»ºåˆ°ä¸€åŠæ‰æŠ¥é”™ã€‚
     if not (0.0 < args.rrc_scale_min <= args.rrc_scale_max <= 1.0):
         raise ValueError(
             f"Require 0 < rrc_scale_min <= rrc_scale_max <= 1, "
@@ -720,7 +731,7 @@ def validate_args(args) -> None:
         raise ValueError(f"All rgb_std values must be positive, got {args.rgb_std}")
 
     # ------------------------------------------------------------
-    # MindRove target length 参数检查
+    # MindRove target length å‚æ•°æ£€æŸ¥
     # ------------------------------------------------------------
     if not isinstance(args.mindrove_target_len, int) or args.mindrove_target_len <= 0:
         raise ValueError(f"mindrove_target_len must be a positive int, got {args.mindrove_target_len}")
@@ -731,12 +742,12 @@ def validate_args(args) -> None:
             raise ValueError(f"{name} must be None or a positive int, got {value}")
 
     # ------------------------------------------------------------
-    # Signal branch / pretrained 参数检查
+    # Signal branch / pretrained å‚æ•°æ£€æŸ¥
     # ------------------------------------------------------------
-    # 这里会同时检查：
-    # - --signal_types 是否合法；
-    # - 多 signal 分支时是否错误使用了旧的 --signal_pretrained_weight_paths；
-    # - 各分支预训练权重列表是否能广播或逐项匹配。
+    # è¿™é‡Œä¼šåŒæ—¶æ£€æŸ¥ï¼š
+    # - --signal_types æ˜¯å¦åˆæ³•ï¼›
+    # - å¤š signal åˆ†æ”¯æ—¶æ˜¯å¦é”™è¯¯ä½¿ç”¨äº†æ—§çš„ --signal_pretrained_weight_pathsï¼›
+    # - å„åˆ†æ”¯é¢„è®­ç»ƒæƒé‡åˆ—è¡¨æ˜¯å¦èƒ½å¹¿æ’­æˆ–é€é¡¹åŒ¹é…ã€‚
     selected_signals = get_selected_signal_types(args)
     _ = get_signal_pretrained_lists(args)
     n_pretrained = infer_pretrained_run_count(args)
@@ -746,8 +757,8 @@ def validate_args(args) -> None:
         if len(train_manifests) == 0:
             raise ValueError("In train mode, you must provide --train_manifest or --train_manifests")
 
-        # 如果有预训练实验，train/val manifest 需要能够对齐到实验数；
-        # 如果全 scratch，则只需要至少一个 train manifest。
+        # å¦‚æžœæœ‰é¢„è®­ç»ƒå®žéªŒï¼Œtrain/val manifest éœ€è¦èƒ½å¤Ÿå¯¹é½åˆ°å®žéªŒæ•°ï¼›
+        # å¦‚æžœå…¨ scratchï¼Œåˆ™åªéœ€è¦è‡³å°‘ä¸€ä¸ª train manifestã€‚
         if n_pretrained > 0:
             _ = broadcast_or_match(train_manifests, n_pretrained, "train_manifests")
             val_manifests = collect_single_and_multi_paths(args.val_manifest, args.val_manifests)
@@ -760,7 +771,7 @@ def validate_args(args) -> None:
             raise ValueError("In test mode, you must provide --test_weight_paths")
 
     if len(selected_signals) > 1 and args.finetune_mode == "head_only":
-        # 不是错误，只是提醒：head_only 会冻结 RGB/EMG/IMU backbone 和 fusion，只训练 classifier。
+        # ä¸æ˜¯é”™è¯¯ï¼Œåªæ˜¯æé†’ï¼šhead_only ä¼šå†»ç»“ RGB/EMG/IMU backbone å’Œ fusionï¼Œåªè®­ç»ƒ classifierã€‚
         print("[warning] RGB+EMG+IMU with finetune_mode=head_only freezes all backbones and the fusion module; only classifier is trainable.")
 
 def build_pretrained_tag(weight_path: Optional[str], args, prefix: str) -> str:
@@ -792,15 +803,15 @@ def build_pretrained_tag(weight_path: Optional[str], args, prefix: str) -> str:
 
 def build_training_sources(args) -> List[dict]:
     """
-    构造训练实验源。
+    æž„é€ è®­ç»ƒå®žéªŒæºã€‚
 
-    与旧版不同，本函数不再假设只有一个 signal backbone。
-    每个 source 会携带：
+    ä¸Žæ—§ç‰ˆä¸åŒï¼Œæœ¬å‡½æ•°ä¸å†å‡è®¾åªæœ‰ä¸€ä¸ª signal backboneã€‚
+    æ¯ä¸ª source ä¼šæºå¸¦ï¼š
       - rgb_pretrained_path: Optional[str]
-      - signal_pretrained_paths: dict，例如 {"emg": path_or_None, "imu": path_or_None}
+      - signal_pretrained_paths: dictï¼Œä¾‹å¦‚ {"emg": path_or_None, "imu": path_or_None}
 
-    预训练权重对齐规则由 infer_pretrained_run_count() 和
-    broadcast_optional_weight_list() 统一处理。
+    é¢„è®­ç»ƒæƒé‡å¯¹é½è§„åˆ™ç”± infer_pretrained_run_count() å’Œ
+    broadcast_optional_weight_list() ç»Ÿä¸€å¤„ç†ã€‚
     """
     train_manifests = collect_single_and_multi_paths(args.train_manifest, args.train_manifests)
     val_manifests = collect_single_and_multi_paths(args.val_manifest, args.val_manifests)
@@ -869,11 +880,11 @@ def build_test_pairs(args) -> List[dict]:
 
 def _pack_cli_float_scalar_or_pair(values, arg_name: str):
     """
-    将 argparse 读入的 float 列表整理为：
-    - 1 个值 -> float
-    - 2 个值 -> (float, float)
+    å°† argparse è¯»å…¥çš„ float åˆ—è¡¨æ•´ç†ä¸ºï¼š
+    - 1 ä¸ªå€¼ -> float
+    - 2 ä¸ªå€¼ -> (float, float)
 
-    这里用于 drift_max，严格限制只能传 1 个或 2 个值。
+    è¿™é‡Œç”¨äºŽ drift_maxï¼Œä¸¥æ ¼é™åˆ¶åªèƒ½ä¼  1 ä¸ªæˆ– 2 ä¸ªå€¼ã€‚
     """
     if values is None:
         return None
@@ -888,11 +899,11 @@ def _pack_cli_float_scalar_or_pair(values, arg_name: str):
 
 def _pack_cli_int_scalar_or_list(values, arg_name: str):
     """
-    将 argparse 读入的 int 列表整理为：
-    - 1 个值 -> int
-    - 多个值 -> list[int]
+    å°† argparse è¯»å…¥çš„ int åˆ—è¡¨æ•´ç†ä¸ºï¼š
+    - 1 ä¸ªå€¼ -> int
+    - å¤šä¸ªå€¼ -> list[int]
 
-    这里用于 drift_n_points。
+    è¿™é‡Œç”¨äºŽ drift_n_pointsã€‚
     """
     if values is None:
         return None
@@ -908,33 +919,33 @@ def _pack_cli_int_scalar_or_list(values, arg_name: str):
 
 def build_mapstyle_cfg(args, is_train: bool) -> PackedMultiModalConfig:
     """
-    按当前 loader 的真实字段名构建配置。
+    æŒ‰å½“å‰ loader çš„çœŸå®žå­—æ®µåæž„å»ºé…ç½®ã€‚
 
-    关键点
+    å…³é”®ç‚¹
     ------
-    1) 融合分类固定使用：RGB + MindRove。
-    2) 分类脚本不做 two-view：
+    1) èžåˆåˆ†ç±»å›ºå®šä½¿ç”¨ï¼šRGB + MindRoveã€‚
+    2) åˆ†ç±»è„šæœ¬ä¸åš two-viewï¼š
        - rgb_two_views = False
        - mindrove_two_views = False
-    3) RGB 的 normalization / spatial augmentation 交给 dataloader：
-       - 本函数只把命令行参数封装进 PackedMultiModalConfig；
-       - 训练循环中不会再次 Normalize，避免重复标准化。
-    4) MindRove 的标准化和增强也交给 dataloader：
-       - 先重采样；
-       - 再做可选标准化；
-       - 再做训练期增强。
+    3) RGB çš„ normalization / spatial augmentation äº¤ç»™ dataloaderï¼š
+       - æœ¬å‡½æ•°åªæŠŠå‘½ä»¤è¡Œå‚æ•°å°è£…è¿› PackedMultiModalConfigï¼›
+       - è®­ç»ƒå¾ªçŽ¯ä¸­ä¸ä¼šå†æ¬¡ Normalizeï¼Œé¿å…é‡å¤æ ‡å‡†åŒ–ã€‚
+    4) MindRove çš„æ ‡å‡†åŒ–å’Œå¢žå¼ºä¹Ÿäº¤ç»™ dataloaderï¼š
+       - å…ˆé‡é‡‡æ ·ï¼›
+       - å†åšå¯é€‰æ ‡å‡†åŒ–ï¼›
+       - å†åšè®­ç»ƒæœŸå¢žå¼ºã€‚
     """
     rgb_hw = (args.rgb_size, args.rgb_size)
     depth_hw = (args.depth_size, args.depth_size)
 
     # ------------------------------------------------------------
-    # 训练增强总开关
+    # è®­ç»ƒå¢žå¼ºæ€»å¼€å…³
     # ------------------------------------------------------------
-    # 与单模态脚本保持一致：
-    # - 默认不改变原始增强行为；
-    # - 只有训练集 is_train=True 且用户显式传入 --disable_train_augmentation 时，
-    #   才把 RGB 随机裁剪退化为不裁剪，并关闭 RGB/MindRove 随机增强。
-    # - 验证/测试集仍然由 dataloader 的 is_train=False 路径控制。
+    # ä¸Žå•æ¨¡æ€è„šæœ¬ä¿æŒä¸€è‡´ï¼š
+    # - é»˜è®¤ä¸æ”¹å˜åŽŸå§‹å¢žå¼ºè¡Œä¸ºï¼›
+    # - åªæœ‰è®­ç»ƒé›† is_train=True ä¸”ç”¨æˆ·æ˜¾å¼ä¼ å…¥ --disable_train_augmentation æ—¶ï¼Œ
+    #   æ‰æŠŠ RGB éšæœºè£å‰ªé€€åŒ–ä¸ºä¸è£å‰ªï¼Œå¹¶å…³é—­ RGB/MindRove éšæœºå¢žå¼ºã€‚
+    # - éªŒè¯/æµ‹è¯•é›†ä»ç„¶ç”± dataloader çš„ is_train=False è·¯å¾„æŽ§åˆ¶ã€‚
     if is_train and bool(args.disable_train_augmentation):
         rrc_scale = (1.0, 1.0)
         rrc_ratio = (1.0, 1.0)
@@ -960,6 +971,7 @@ def build_mapstyle_cfg(args, is_train: bool) -> PackedMultiModalConfig:
         # -------- common --------
         n_frames=args.n_frames,
         rgb_two_views=False,
+        rgb_camera_id=args.rgb_camera_id,
         use_modalities=("rgb", "mindrove"),
         missing_policy="skip",
         load_labels=True,
@@ -970,15 +982,15 @@ def build_mapstyle_cfg(args, is_train: bool) -> PackedMultiModalConfig:
         # -------- rgb / depth --------
         rgb_out_hw=rgb_hw,
 
-        # RGB Normalize 参数。这里使用 tuple，避免后续 config 内部误改原 args list。
+        # RGB Normalize å‚æ•°ã€‚è¿™é‡Œä½¿ç”¨ tupleï¼Œé¿å…åŽç»­ config å†…éƒ¨è¯¯æ”¹åŽŸ args listã€‚
         rgb_mean=tuple(float(x) for x in args.rgb_mean),
         rgb_std=tuple(float(x) for x in args.rgb_std),
 
-        # RGB RandomResizedCrop 参数。
+        # RGB RandomResizedCrop å‚æ•°ã€‚
         rrc_scale=rrc_scale,
         rrc_ratio=rrc_ratio,
 
-        # RGB 随机空间增强参数。
+        # RGB éšæœºç©ºé—´å¢žå¼ºå‚æ•°ã€‚
         rgb_apply_spatial_aug=rgb_apply_spatial_aug,
         rgb_hflip_p=rgb_hflip_p,
         rgb_vflip_p=rgb_vflip_p,
@@ -999,9 +1011,9 @@ def build_mapstyle_cfg(args, is_train: bool) -> PackedMultiModalConfig:
         # -------- mindrove --------
         mindrove_two_views=False,
         mindrove_target_len=args.mindrove_target_len,
-        # 允许 EMG / IMU 使用不同的输入长度。
-        # 这两个字段需要配合支持 mindrove_emg_target_len / mindrove_imu_target_len
-        # 的新版 dataloader 使用；若为 None，则 dataloader 会回退到 mindrove_target_len。
+        # å…è®¸ EMG / IMU ä½¿ç”¨ä¸åŒçš„è¾“å…¥é•¿åº¦ã€‚
+        # è¿™ä¸¤ä¸ªå­—æ®µéœ€è¦é…åˆæ”¯æŒ mindrove_emg_target_len / mindrove_imu_target_len
+        # çš„æ–°ç‰ˆ dataloader ä½¿ç”¨ï¼›è‹¥ä¸º Noneï¼Œåˆ™ dataloader ä¼šå›žé€€åˆ° mindrove_target_lenã€‚
         mindrove_emg_target_len=args.mindrove_emg_target_len,
         mindrove_imu_target_len=args.mindrove_imu_target_len,
         mindrove_hands=tuple(args.mindrove_hands),
@@ -1066,7 +1078,7 @@ def build_one_mapstyle_dataset_and_loader(
     sampler=None,
 ):
     """
-    直接沿用你当前单模态脚本的构建方式，只是 use_modalities 改为 RGB + mindrove。
+    ç›´æŽ¥æ²¿ç”¨ä½ å½“å‰å•æ¨¡æ€è„šæœ¬çš„æž„å»ºæ–¹å¼ï¼Œåªæ˜¯ use_modalities æ”¹ä¸º RGB + mindroveã€‚
     """
     label_map = load_label_map_json(args.label_map_json)
     manifest_name = resolve_manifest_arg(args.dataset_root, manifest_arg)
@@ -1167,13 +1179,13 @@ def prepare_test_loader_for_manifest(args, test_manifest: str):
 
 def build_mindrove_input_keys(args, signal_type: str) -> List[str]:
     """
-    返回某一个 signal 分支需要从 batch["mindrove"] 中读取的 key 顺序。
+    è¿”å›žæŸä¸€ä¸ª signal åˆ†æ”¯éœ€è¦ä»Ž batch["mindrove"] ä¸­è¯»å–çš„ key é¡ºåºã€‚
 
-    当 mindrove_merge_hands=False：
+    å½“ mindrove_merge_hands=Falseï¼š
       EMG -> ["left_emg", "right_emg"]
       IMU -> ["left_imu", "right_imu"]
 
-    当 mindrove_merge_hands=True：
+    å½“ mindrove_merge_hands=Trueï¼š
       EMG -> ["emg"]
       IMU -> ["imu"]
     """
@@ -1184,10 +1196,10 @@ def build_mindrove_input_keys(args, signal_type: str) -> List[str]:
 
 def get_signal_in_channels(args, signal_type: str) -> int:
     """
-    自动计算某一个 1D backbone 的输入通道数。
+    è‡ªåŠ¨è®¡ç®—æŸä¸€ä¸ª 1D backbone çš„è¾“å…¥é€šé“æ•°ã€‚
 
-    注意：EMG 和 IMU 使用独立 backbone，因此这里返回的是单个 signal 分支的通道数，
-    而不是把 EMG+IMU 拼成一个大通道输入。
+    æ³¨æ„ï¼šEMG å’Œ IMU ä½¿ç”¨ç‹¬ç«‹ backboneï¼Œå› æ­¤è¿™é‡Œè¿”å›žçš„æ˜¯å•ä¸ª signal åˆ†æ”¯çš„é€šé“æ•°ï¼Œ
+    è€Œä¸æ˜¯æŠŠ EMG+IMU æ‹¼æˆä¸€ä¸ªå¤§é€šé“è¾“å…¥ã€‚
     """
     base = MINDROVE_SIGNAL_CHANNELS[signal_type]
     return base * len(args.mindrove_hands)
@@ -1195,14 +1207,14 @@ def get_signal_in_channels(args, signal_type: str) -> int:
 
 def concat_one_signal_batch_dict(batch_mindrove: dict, args, signal_type: str) -> torch.Tensor:
     """
-    将 batch["mindrove"] 中属于某个 signal 的左右手数据拼接成一个 1D backbone 输入。
+    å°† batch["mindrove"] ä¸­å±žäºŽæŸä¸ª signal çš„å·¦å³æ‰‹æ•°æ®æ‹¼æŽ¥æˆä¸€ä¸ª 1D backbone è¾“å…¥ã€‚
 
-    返回
+    è¿”å›ž
     ----
     Tensor[B, C_total, L]
-        例如：
-        - EMG 左右手：8+8=16 通道
-        - IMU 左右手：6+6=12 通道
+        ä¾‹å¦‚ï¼š
+        - EMG å·¦å³æ‰‹ï¼š8+8=16 é€šé“
+        - IMU å·¦å³æ‰‹ï¼š6+6=12 é€šé“
     """
     if not isinstance(batch_mindrove, dict):
         raise TypeError(f"Expect batch['mindrove'] to be dict, got {type(batch_mindrove)}")
@@ -1238,15 +1250,15 @@ def concat_one_signal_batch_dict(batch_mindrove: dict, args, signal_type: str) -
 
 def extract_multimodal_inputs_and_labels(batch: dict, tier_mode: str, args):
     """
-    从 dataloader batch 中取出：
+    ä»Ž dataloader batch ä¸­å–å‡ºï¼š
       - rgb_inputs: Tensor[B,T,C,H,W]
-      - signal_inputs: dict[str, Tensor[B,C,L]]，例如 {"emg": ..., "imu": ...}
+      - signal_inputs: dict[str, Tensor[B,C,L]]ï¼Œä¾‹å¦‚ {"emg": ..., "imu": ...}
       - labels
       - clip_ids
 
-    这里是 RGB+EMG+IMU 支持的关键入口：
-    dataloader 负责一次性读出所有 requested mindrove_signals，
-    本函数再把 EMG 和 IMU 拆给各自独立的 1D backbone。
+    è¿™é‡Œæ˜¯ RGB+EMG+IMU æ”¯æŒçš„å…³é”®å…¥å£ï¼š
+    dataloader è´Ÿè´£ä¸€æ¬¡æ€§è¯»å‡ºæ‰€æœ‰ requested mindrove_signalsï¼Œ
+    æœ¬å‡½æ•°å†æŠŠ EMG å’Œ IMU æ‹†ç»™å„è‡ªç‹¬ç«‹çš„ 1D backboneã€‚
     """
     clip_ids = batch.get("key", None)
     if clip_ids is None:
@@ -1299,10 +1311,10 @@ def preprocess_signal(x_bcl: torch.Tensor) -> torch.Tensor:
 
 def move_and_prepare_multimodal_inputs(rgb_inputs, signal_inputs: Dict[str, torch.Tensor], device, non_blocking: bool = True):
     """
-    将 RGB 和每个 signal 分支移动到 device，并整理成模型输入格式。
+    å°† RGB å’Œæ¯ä¸ª signal åˆ†æ”¯ç§»åŠ¨åˆ° deviceï¼Œå¹¶æ•´ç†æˆæ¨¡åž‹è¾“å…¥æ ¼å¼ã€‚
 
     RGB:    [B,T,C,H,W] -> [B,C,T,H,W]
-    Signal: [B,C,L] 保持不变
+    Signal: [B,C,L] ä¿æŒä¸å˜
     """
     rgb_inputs = ensure_bcthw(preprocess_rgb(rgb_inputs)).to(device, non_blocking=non_blocking)
     signal_inputs = {
@@ -1317,21 +1329,21 @@ def move_and_prepare_multimodal_inputs(rgb_inputs, signal_inputs: Dict[str, torc
 
 class RGBSignalFusionNet(nn.Module):
     """
-    顶层统一模型，支持 RGB + 一个或多个 MindRove signal 分支。
+    é¡¶å±‚ç»Ÿä¸€æ¨¡åž‹ï¼Œæ”¯æŒ RGB + ä¸€ä¸ªæˆ–å¤šä¸ª MindRove signal åˆ†æ”¯ã€‚
 
-    forward 输入
+    forward è¾“å…¥
     ------------
     rgb_x:
         Tensor[B,C,T,H,W]
 
     signal_x:
         dict[str, Tensor[B,C,L]]
-        例如：
+        ä¾‹å¦‚ï¼š
         - RGB+EMG:      {"emg": emg_tensor}
         - RGB+IMU:      {"imu": imu_tensor}
         - RGB+EMG+IMU:  {"emg": emg_tensor, "imu": imu_tensor}
 
-    模型结构
+    æ¨¡åž‹ç»“æž„
     --------
     rgb_x      -> rgb_backbone.forward_features()      -> rgb_feat
     emg_x      -> signal_backbones["emg"].forward_features() -> emg_feat
@@ -1352,8 +1364,8 @@ class RGBSignalFusionNet(nn.Module):
         self.rgb_backbone = rgb_backbone
         self.signal_backbones = nn.ModuleDict(signal_backbones)
 
-        # 向后兼容：如果只有一个 signal 分支，仍然提供 model.signal_backbone 属性。
-        # 旧脚本外部若读取该属性不会立即失败；但新代码统一使用 signal_backbones。
+        # å‘åŽå…¼å®¹ï¼šå¦‚æžœåªæœ‰ä¸€ä¸ª signal åˆ†æ”¯ï¼Œä»ç„¶æä¾› model.signal_backbone å±žæ€§ã€‚
+        # æ—§è„šæœ¬å¤–éƒ¨è‹¥è¯»å–è¯¥å±žæ€§ä¸ä¼šç«‹å³å¤±è´¥ï¼›ä½†æ–°ä»£ç ç»Ÿä¸€ä½¿ç”¨ signal_backbonesã€‚
         if len(self.signal_backbones) == 1:
             only_key = next(iter(self.signal_backbones.keys()))
             self.signal_backbone = self.signal_backbones[only_key]
@@ -1367,7 +1379,7 @@ class RGBSignalFusionNet(nn.Module):
             nn.Dropout(classifier_dropout),
             nn.Linear(head_hidden_dim, num_classes),
         )
-        # 统一暴露 fc，方便 head_only / 外部分析脚本继续按 fc 查找分类头。
+        # ç»Ÿä¸€æš´éœ² fcï¼Œæ–¹ä¾¿ head_only / å¤–éƒ¨åˆ†æžè„šæœ¬ç»§ç»­æŒ‰ fc æŸ¥æ‰¾åˆ†ç±»å¤´ã€‚
         self.fc = self.classifier
 
     def forward_features(self, rgb_x: torch.Tensor, signal_x: Dict[str, torch.Tensor]):
@@ -1385,7 +1397,7 @@ class RGBSignalFusionNet(nn.Module):
     def forward(self, rgb_x: torch.Tensor, signal_x: Dict[str, torch.Tensor], return_details: bool = False):
         rgb_feat, signal_feats = self.forward_features(rgb_x, signal_x)
 
-        # insertion order 与 build_fusion_module(input_dims) 一致：rgb -> emg -> imu。
+        # insertion order ä¸Ž build_fusion_module(input_dims) ä¸€è‡´ï¼šrgb -> emg -> imuã€‚
         modalities = {"rgb": rgb_feat}
         modalities.update(signal_feats)
 
@@ -1450,15 +1462,15 @@ def build_signal_backbone(args, signal_type: str) -> nn.Module:
 
 def build_fusion_module(args, input_dims: Dict[str, int]) -> Tuple[nn.Module, int]:
     """
-    根据 input_dims 构建 fusion module。
+    æ ¹æ® input_dims æž„å»º fusion moduleã€‚
 
-    input_dims 示例：
+    input_dims ç¤ºä¾‹ï¼š
       RGB+EMG:     {"rgb": 512, "emg": 512}
       RGB+IMU:     {"rgb": 512, "imu": 512}
       RGB+EMG+IMU: {"rgb": 512, "emg": 512, "imu": 512}
 
-    你上传的 concat_mlp / gated / weighted_sum 模块本身都支持 dict[str, dim]
-    形式的任意多模态输入，因此这里不需要改 fusion module 文件。
+    ä½ ä¸Šä¼ çš„ concat_mlp / gated / weighted_sum æ¨¡å—æœ¬èº«éƒ½æ”¯æŒ dict[str, dim]
+    å½¢å¼çš„ä»»æ„å¤šæ¨¡æ€è¾“å…¥ï¼Œå› æ­¤è¿™é‡Œä¸éœ€è¦æ”¹ fusion module æ–‡ä»¶ã€‚
     """
     if args.fusion_type == "concat_mlp":
         fusion = ConcatMLPFusion(
@@ -1727,7 +1739,7 @@ def build_optimizer(model: RGBSignalFusionNet, args):
 
     else:
         if args.use_discriminative_lr:
-            # backbone 组包含 RGB backbone + 所有 active signal backbone。
+            # backbone ç»„åŒ…å« RGB backbone + æ‰€æœ‰ active signal backboneã€‚
             backbone_params = [p for p in model.rgb_backbone.parameters() if p.requires_grad]
             for _sig_name, sig_backbone in model.signal_backbones.items():
                 backbone_params.extend([p for p in sig_backbone.parameters() if p.requires_grad])
@@ -1765,10 +1777,10 @@ def build_optimizer(model: RGBSignalFusionNet, args):
     # ------------------------------------------------------------
     # Optimizer selection
     # ------------------------------------------------------------
-    # 参数分组和优化器类型解耦：
-    # - 上面先根据 finetune_mode / use_discriminative_lr 决定哪些参数可训练、每组初始 lr；
-    # - 这里再根据 --optimizer 选择 SGD 或 Adam。
-    # 每个 param_group 已经显式包含 lr，因此 optimizer 构造时不再依赖单一全局 lr。
+    # å‚æ•°åˆ†ç»„å’Œä¼˜åŒ–å™¨ç±»åž‹è§£è€¦ï¼š
+    # - ä¸Šé¢å…ˆæ ¹æ® finetune_mode / use_discriminative_lr å†³å®šå“ªäº›å‚æ•°å¯è®­ç»ƒã€æ¯ç»„åˆå§‹ lrï¼›
+    # - è¿™é‡Œå†æ ¹æ® --optimizer é€‰æ‹© SGD æˆ– Adamã€‚
+    # æ¯ä¸ª param_group å·²ç»æ˜¾å¼åŒ…å« lrï¼Œå› æ­¤ optimizer æž„é€ æ—¶ä¸å†ä¾èµ–å•ä¸€å…¨å±€ lrã€‚
     optimizer_name = str(args.optimizer).lower().strip()
 
     if optimizer_name == "sgd":
@@ -1784,7 +1796,7 @@ def build_optimizer(model: RGBSignalFusionNet, args):
             param_groups,
             weight_decay=args.weight_decay,
         )
-        # Adam 不使用 SGD momentum 参数；这里记录 None，避免 summary 误读。
+        # Adam ä¸ä½¿ç”¨ SGD momentum å‚æ•°ï¼›è¿™é‡Œè®°å½• Noneï¼Œé¿å… summary è¯¯è¯»ã€‚
         optimizer_momentum = None
 
     else:
@@ -1823,7 +1835,7 @@ def adjust_learning_rate(optimizer, epoch: int, args):
 
 def build_class_counts_from_mapstyle_dataset(dataset, tier_mode: str, num_classes: int):
     """
-    直接沿用原单模态脚本的做法：从 dataset.records + dataset.label_map 统计，不走 __getitem__。
+    ç›´æŽ¥æ²¿ç”¨åŽŸå•æ¨¡æ€è„šæœ¬çš„åšæ³•ï¼šä»Ž dataset.records + dataset.label_map ç»Ÿè®¡ï¼Œä¸èµ° __getitem__ã€‚
     """
     if not hasattr(dataset, "records"):
         raise TypeError("dataset must have attribute 'records'.")
@@ -2063,7 +2075,7 @@ def evaluate_one_epoch(
 
 def build_reverse_label_map(args) -> dict:
     """
-    你的 label_map_json 是按 tier 分层的，所以这里只取当前 tier_mode 的反向映射。
+    ä½ çš„ label_map_json æ˜¯æŒ‰ tier åˆ†å±‚çš„ï¼Œæ‰€ä»¥è¿™é‡Œåªå–å½“å‰ tier_mode çš„åå‘æ˜ å°„ã€‚
     """
     label_map = load_label_map_json(args.label_map_json)
     if args.tier_mode not in label_map:
@@ -2073,10 +2085,10 @@ def build_reverse_label_map(args) -> dict:
 
 def add_fusion_info_to_row(row: dict, fusion_info, model: RGBSignalFusionNet, sample_index: int, args) -> None:
     """
-    将 gated / weighted_sum 的融合权重写入 per-sample CSV 行。
+    å°† gated / weighted_sum çš„èžåˆæƒé‡å†™å…¥ per-sample CSV è¡Œã€‚
 
-    旧脚本写死了两个模态：rgb 和 signal。
-    新脚本改成根据 model.fusion.modality_names 动态展开，因此可以自然支持：
+    æ—§è„šæœ¬å†™æ­»äº†ä¸¤ä¸ªæ¨¡æ€ï¼šrgb å’Œ signalã€‚
+    æ–°è„šæœ¬æ”¹æˆæ ¹æ® model.fusion.modality_names åŠ¨æ€å±•å¼€ï¼Œå› æ­¤å¯ä»¥è‡ªç„¶æ”¯æŒï¼š
       - rgb, emg
       - rgb, imu
       - rgb, emg, imu
@@ -2087,7 +2099,7 @@ def add_fusion_info_to_row(row: dict, fusion_info, model: RGBSignalFusionNet, sa
     modality_names = list(getattr(model.fusion, "modality_names", get_fusion_modality_names(args)))
 
     if args.fusion_type == "weighted_sum":
-        # WeightedSumFusion 返回的是全局可学习权重，不随样本变化。
+        # WeightedSumFusion è¿”å›žçš„æ˜¯å…¨å±€å¯å­¦ä¹ æƒé‡ï¼Œä¸éšæ ·æœ¬å˜åŒ–ã€‚
         if fusion_info.ndim == 1:
             for m_idx, name in enumerate(modality_names):
                 row[f"fusion_weight_{name}"] = float(fusion_info[m_idx].item())
@@ -2097,7 +2109,7 @@ def add_fusion_info_to_row(row: dict, fusion_info, model: RGBSignalFusionNet, sa
         return
 
     if args.fusion_type == "gated":
-        # GatedFusion 返回的是样本相关权重。
+        # GatedFusion è¿”å›žçš„æ˜¯æ ·æœ¬ç›¸å…³æƒé‡ã€‚
         if fusion_info.ndim == 2:
             # scalar gate: [B, M]
             for m_idx, name in enumerate(modality_names):
@@ -2195,7 +2207,7 @@ def evaluate_test_with_per_sample_csv(
 
 def build_run_name(args, run_index: int, source_tag: str, finetune_mode: str) -> str:
     """
-    使用短目录名，避免 Windows 路径过长：
+    ä½¿ç”¨çŸ­ç›®å½•åï¼Œé¿å… Windows è·¯å¾„è¿‡é•¿ï¼š
         run_01_a1b2c3d4
     """
     rand_suffix = f"{random.randint(0, 16**8 - 1):08x}"
@@ -2229,11 +2241,11 @@ def run_one_training_experiment(
     source_tag: str,
 ):
     """
-    执行一次训练实验。
+    æ‰§è¡Œä¸€æ¬¡è®­ç»ƒå®žéªŒã€‚
 
-    这里最重要的变化是：
-    - 旧脚本只加载一个 signal_pretrained_path；
-    - 新脚本会按 signal_pretrained_paths 分别给 EMG / IMU backbone 加载权重。
+    è¿™é‡Œæœ€é‡è¦çš„å˜åŒ–æ˜¯ï¼š
+    - æ—§è„šæœ¬åªåŠ è½½ä¸€ä¸ª signal_pretrained_pathï¼›
+    - æ–°è„šæœ¬ä¼šæŒ‰ signal_pretrained_paths åˆ†åˆ«ç»™ EMG / IMU backbone åŠ è½½æƒé‡ã€‚
     """
     model = prepare_model(args).to(device)
 
@@ -2550,3 +2562,4 @@ def main(args):
 if __name__ == "__main__":
     args = parser.parse_args()
     main(args)
+

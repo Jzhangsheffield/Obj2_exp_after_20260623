@@ -133,6 +133,10 @@ class PackedMultiModalConfig:
     # RGB 是否 two-view（对比学习）
     rgb_two_views: bool = False
 
+    # Which RGB camera field to read from the manifest.
+    # 00143 -> rgb_cam_00143; 00152 -> rgb_cam_00152.
+    rgb_camera_id: str = "00143"
+
     # 启用哪些模态，可选：rgb / depth / mindrove
     use_modalities: Tuple[str, ...] = ("rgb", "depth")
 
@@ -464,6 +468,38 @@ def _normalize_modalities(use_modalities: Tuple[str, ...]) -> Tuple[str, ...]:
     if len(x) == 0:
         raise ValueError("At least one modality must be enabled.")
     return x
+
+
+def resolve_rgb_manifest_key(camera_id: str) -> str:
+    x = str(camera_id).strip()
+    aliases = {
+        "00143": "rgb_cam_00143",
+        "001431512812": "rgb_cam_00143",
+        "cam_001431512812": "rgb_cam_00143",
+        "rgb_cam_00143": "rgb_cam_00143",
+        "00152": "rgb_cam_00152",
+        "001528512812": "rgb_cam_00152",
+        "cam_001528512812": "rgb_cam_00152",
+        "rgb_cam_00152": "rgb_cam_00152",
+    }
+    if x not in aliases:
+        raise ValueError(
+            f"Unsupported rgb_camera_id={camera_id!r}. "
+            "Use 00143/cam_001431512812 or 00152/cam_001528512812."
+        )
+    return aliases[x]
+
+
+def _get_rgb_rel_from_record(rec: Dict[str, Any], camera_id: str) -> Optional[str]:
+    rgb_key = resolve_rgb_manifest_key(camera_id)
+    rgb_rel = rec.get(rgb_key, None)
+    if rgb_rel is not None:
+        return rgb_rel
+    # Backward-compatible fallbacks for older manifests.
+    rgb_rel = rec.get("rgb", None)
+    if rgb_rel is not None:
+        return rgb_rel
+    return rec.get("001484412812_rgb", None)
 
 
 def _normalize_hands(hands: Tuple[str, ...]) -> Tuple[str, ...]:
@@ -1089,10 +1125,7 @@ class PackedRGBDepthMindRoveMapDataset(Dataset):
             ok = True
 
             if "rgb" in self.cfg.use_modalities:
-                # 临时兼容 stage2 的脚本
-                rgb_rel = rec.get("rgb", None)
-                if rgb_rel is None:
-                    rgb_rel = rec.get("001484412812_rgb", None)
+                rgb_rel = _get_rgb_rel_from_record(rec, self.cfg.rgb_camera_id)
                 if rgb_rel is None or not (self.dataset_root / rgb_rel).is_file():
                     ok = False
 
@@ -1119,10 +1152,7 @@ class PackedRGBDepthMindRoveMapDataset(Dataset):
         return len(self.records)
 
     def _load_rgb(self, rec: Dict[str, Any]) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        rgb_rel = rec.get("rgb", None)
-        # 临时兼容 stage2的脚本
-        if rgb_rel is None:
-            rgb_rel = rec.get("001484412812_rgb", None)
+        rgb_rel = _get_rgb_rel_from_record(rec, self.cfg.rgb_camera_id)
         if rgb_rel is None:
             if self.cfg.missing_policy == "skip":
                 raise FileNotFoundError(f"Record missing rgb path: {rec.get('sample_name', 'unknown')}")

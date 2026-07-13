@@ -103,6 +103,17 @@ parser.add_argument(
 parser.add_argument("--rgb_out_hw", nargs=2, type=int, default=[224, 224],
                     metavar=("H", "W"),
                     help="RGB output spatial size after augmentation / validation transform")
+parser.add_argument(
+    "--rgb_camera_id",
+    type=str,
+    default="00143",
+    help=(
+        "RGB camera to load from manifest. Supported aliases: "
+        "00143/cam_001431512812/rgb_cam_00143 or "
+        "00152/cam_001528512812/rgb_cam_00152."
+    ),
+)
+
 parser.add_argument("--rrc_scale", nargs=2, type=float, default=[0.6, 1.0],
                     metavar=("MIN", "MAX"),
                     help="RandomResizedCrop scale range for RGB training augmentation")
@@ -1033,6 +1044,7 @@ def prepare_trainloader(args, use_ddp: bool, rank: int, world_size: int):
     cfg = PackedMultiModalConfig(
         n_frames=args.n_frames,
         rgb_two_views=True,
+        rgb_camera_id=args.rgb_camera_id,
         use_modalities=("rgb",),
         missing_policy="skip",
         load_labels=True,
