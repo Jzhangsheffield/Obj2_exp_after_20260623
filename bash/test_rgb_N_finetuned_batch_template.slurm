@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=test_rgb_N_ft_except_take_put
+#SBATCH --job-name=test_rgb_N_ft_except_take_put_sampler_s9
 #SBATCH --partition=gpu,gpu-h100,gpu-h100-nvl
 #SBATCH --qos=gpu
 #SBATCH --nodes=1
@@ -10,8 +10,8 @@
 #SBATCH --time=12:00:00
 #SBATCH --mail-user=jzhang319@sheffield.ac.uk
 #SBATCH --mail-type=ALL
-#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_except_take_put%j.out
-#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_except_take_put%j.err
+#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_except_take_putsampler_s9_%j.out
+#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/test_rgb_N_ft_except_take_putsampler_s_9%j.err
 
 set -euo pipefail
 
@@ -70,7 +70,7 @@ RGB_MEAN_OVERRIDE=()
 RGB_STD_OVERRIDE=()
 
 # Fine-tuned RGB weight root. Change this to test another completed run.
-WEIGHT_ROOT="${PROJECT_ROOT}/results/ft_rgb_N_except_take_put_adamw_22_seed1/weights"
+WEIGHT_ROOT="${PROJECT_ROOT}/results/ft_rgb_N_except_take_put_adamw_sampler_9_seed1/weights"
 
 # Output root for summary CSV, tested-weight lists, and console logs.
 RUN_STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -82,7 +82,7 @@ SUMMARY_ROOT="${OUTPUT_BASE}/summary"
 # ============================================================
 # 2) Checkpoint selection and batching
 # ============================================================
-MATCH_BEST_VAL=0
+MATCH_BEST_VAL=1
 MATCH_BEST_VAL_BALANCED=0
 MATCH_BEST_VAL_MACRO_F1=0
 MATCH_LAST=1
