@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=rgb_N_except_stage5_rand3
+#SBATCH --job-name=rgb_N_except_stage5_reltopk_rand9
 #SBATCH --partition=gpu,gpu-h100,gpu-h100-nvl
 #SBATCH --qos=gpu
 #SBATCH --nodes=1
@@ -10,15 +10,15 @@
 #SBATCH --time=15:00:00
 #SBATCH --mail-user=jzhang319@sheffield.ac.uk
 #SBATCH --mail-type=ALL
-#SBATCH --array=0-2%3
-#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_stage5_random_3_%x_%A_%a.out
-#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_stage5_random_3_%x_%A_%a.err
+#SBATCH --array=0-8%3
+#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_stage5_reltopk_random_9_%x_%A_%a.out
+#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_stage5_reltopk_random_9_%x_%A_%a.err
 
 set -euo pipefail
 
 # ============================================================
-# RGB stage-5-loss random-sampler ablation for N_as_test / train_manifest_except_take_put.jsonl
-# 
+# RGB stage-5-loss rel-topk random-sampler ablation for N_as_test / train_manifest_except_take_put.jsonl
+# 9 tasks: proto-only once + rel/proto_rel p=3 prem=0.5 x rel_topk_diff_classes(3,5,10,all)
 # Normalization is read from N_as_test/train_normalization_stats/except_take_put_rgb_stats.json and rounded to 4 decimals.
 # ============================================================
 
@@ -31,7 +31,7 @@ DATASET_ROOT="/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyl
 TRAIN_MANIFEST_NAME="${DATASET_ROOT}/N_as_test/train_manifest_except_take_put.jsonl"
 LABEL_MAP_JSON="${DATASET_ROOT}/label_map_except_take_put.json"
 NORMALIZATION_STATS_JSON="${DATASET_ROOT}/N_as_test/train_normalization_stats/except_take_put_rgb_stats.json"
-SAVE_ROOT="${PROJECT_ROOT}/results/rgb_N_except_take_put_adamw_stage5_random_3"
+SAVE_ROOT="${PROJECT_ROOT}/results/rgb_N_except_take_put_adamw_stage5_reltopk_random_9"
 LOG_ROOT="${PROJECT_ROOT}/bash/logs"
 
 # ------------------------------
@@ -97,6 +97,12 @@ K_QUEUES=(
   1088
   1088
   1088
+  1088
+  1088
+  1088
+  1088
+  1088
+  1088
 )
 TEMPERATURE=0.07
 USE_MLP=1
@@ -107,7 +113,7 @@ EXCLUDE_INVALID_QUEUE=0
 # ------------------------------
 # 6) Prototype / relative loss parameters
 # ------------------------------
-WARMUP_EPOCHS=50
+WARMUP_EPOCHS=5
 RECLUSTER_INTERVAL=10
 NUM_PROTOTYPES_PER_CLASS=""
 LAMBDA_PROTO=1.0
@@ -177,9 +183,21 @@ ABLATION_MODES=(
   "contrastive_proto"
   "contrastive_rel"
   "contrastive_proto_rel"
+  "contrastive_rel"
+  "contrastive_proto_rel"
+  "contrastive_rel"
+  "contrastive_proto_rel"
+  "contrastive_rel"
+  "contrastive_proto_rel"
 )
 
 DEFAULT_NUM_PROTOTYPES=(
+  "3"
+  "3"
+  "3"
+  "3"
+  "3"
+  "3"
   "3"
   "3"
   "3"
@@ -189,21 +207,57 @@ PREVIEW_EMA_MOMENTA=(
   ""
   "0.5"
   "0.5"
+  "0.5"
+  "0.5"
+  "0.5"
+  "0.5"
+  "0.5"
+  "0.5"
 )
 
 RUN_NAMES=(
   "suploss_proto_p3_stage5"
-  "suploss_rel_p3_prem0.5_stage5"
-  "suploss_proto_rel_p3_prem0.5_stage5"
+  "suploss_rel_p3_prem0.5_stage5_topk3"
+  "suploss_proto_rel_p3_prem0.5_stage5_topk3"
+  "suploss_rel_p3_prem0.5_stage5_topk5"
+  "suploss_proto_rel_p3_prem0.5_stage5_topk5"
+  "suploss_rel_p3_prem0.5_stage5_topk10"
+  "suploss_proto_rel_p3_prem0.5_stage5_topk10"
+  "suploss_rel_p3_prem0.5_stage5_topkall"
+  "suploss_proto_rel_p3_prem0.5_stage5_topkall"
+)
+
+REL_TOPK_DIFF_CLASSES_VALUES=(
+  "3"
+  "3"
+  "3"
+  "5"
+  "5"
+  "10"
+  "10"
+  "0"
+  "0"
 )
 
 SAMPLER_TYPES=(
   "none"
   "none"
   "none"
+  "none"
+  "none"
+  "none"
+  "none"
+  "none"
+  "none"
 )
 
 SAMPLER_LABELS=(
+  "random"
+  "random"
+  "random"
+  "random"
+  "random"
+  "random"
   "random"
   "random"
   "random"
@@ -214,8 +268,8 @@ if [[ ${#ABLATION_MODES[@]} -ne ${TOTAL_TASKS} || ${#DEFAULT_NUM_PROTOTYPES[@]} 
     echo "[Error] Experiment arrays have inconsistent lengths." >&2
     exit 2
 fi
-if [[ ${#K_QUEUES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_TYPES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_LABELS[@]} -ne ${TOTAL_TASKS} ]]; then
-    echo "[Error] K_queue or sampler arrays have inconsistent lengths." >&2
+if [[ ${#K_QUEUES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_TYPES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_LABELS[@]} -ne ${TOTAL_TASKS} || ${#REL_TOPK_DIFF_CLASSES_VALUES[@]} -ne ${TOTAL_TASKS} ]]; then
+    echo "[Error] K_queue, sampler, or rel top-k arrays have inconsistent lengths." >&2
     exit 2
 fi
 
@@ -232,6 +286,7 @@ RUN_NAME="${RUN_NAMES[$IDX]}"
 K_QUEUE="${K_QUEUES[$IDX]}"
 SAMPLER_TYPE="${SAMPLER_TYPES[$IDX]}"
 SAMPLER_LABEL="${SAMPLER_LABELS[$IDX]}"
+REL_TOPK_DIFF_CLASSES="${REL_TOPK_DIFF_CLASSES_VALUES[$IDX]}"
 WEIGHT_SAVE_PATH="${SAVE_ROOT}/sampler_${SAMPLER_LABEL}/K${K_QUEUE}/${RUN_NAME}"
 
 mkdir -p "${SAVE_ROOT}" "${LOG_ROOT}"

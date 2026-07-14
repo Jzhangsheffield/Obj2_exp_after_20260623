@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=rgb_N_except_randK6
+#SBATCH --job-name=rgb_N_reltopk_rand6
 #SBATCH --partition=gpu,gpu-h100,gpu-h100-nvl
 #SBATCH --qos=gpu
 #SBATCH --nodes=1
@@ -11,14 +11,14 @@
 #SBATCH --mail-user=jzhang319@sheffield.ac.uk
 #SBATCH --mail-type=ALL
 #SBATCH --array=0-5%4
-#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_random_kqueue_6_%x_%A_%a.out
-#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_random_kqueue_6_%x_%A_%a.err
+#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_reltopk_random_6_%x_%A_%a.out
+#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/train/out/rgb_N_except_take_put_adamw_reltopk_random_6_%x_%A_%a.err
 
 set -euo pipefail
 
 # ============================================================
-# RGB SupLoss random-sampler K_queue ablation for N_as_test / train_manifest_except_take_put.jsonl
-# 
+# RGB relative-loss top-k ablation for N_as_test / train_manifest_except_take_put.jsonl
+# 6 tasks: rel/proto_rel p=3 prem=0.5 x rel_topk_diff_classes(5,10,all)
 # Normalization is read from N_as_test/train_normalization_stats/except_take_put_rgb_stats.json and rounded to 4 decimals.
 # ============================================================
 
@@ -31,7 +31,7 @@ DATASET_ROOT="/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyl
 TRAIN_MANIFEST_NAME="${DATASET_ROOT}/N_as_test/train_manifest_except_take_put.jsonl"
 LABEL_MAP_JSON="${DATASET_ROOT}/label_map_except_take_put.json"
 NORMALIZATION_STATS_JSON="${DATASET_ROOT}/N_as_test/train_normalization_stats/except_take_put_rgb_stats.json"
-SAVE_ROOT="${PROJECT_ROOT}/results/rgb_N_except_take_put_adamw_random_kqueue_6"
+SAVE_ROOT="${PROJECT_ROOT}/results/rgb_N_except_take_put_adamw_reltopk_random_6"
 LOG_ROOT="${PROJECT_ROOT}/bash/logs"
 
 # ------------------------------
@@ -94,12 +94,12 @@ PROTO_REFRESH_VERIFY_PATHS_ON_INIT=1
 MODEL_DEPTH=18
 PROJ_DIM=128
 K_QUEUES=(
-  512
-  512
-  1024
-  1024
-  2048
-  2048
+  1088
+  1088
+  1088
+  1088
+  1088
+  1088
 )
 TEMPERATURE=0.07
 USE_MLP=1
@@ -177,39 +177,48 @@ DEBUG_WRITE_JSONL="false"
 DEBUG_JSONL_NAME="debug_train_log.jsonl"
 
 ABLATION_MODES=(
-  "contrastive_only"
+  "contrastive_rel"
   "contrastive_proto_rel"
-  "contrastive_only"
+  "contrastive_rel"
   "contrastive_proto_rel"
-  "contrastive_only"
+  "contrastive_rel"
   "contrastive_proto_rel"
 )
 
 DEFAULT_NUM_PROTOTYPES=(
-  "1"
   "3"
-  "1"
   "3"
-  "1"
+  "3"
+  "3"
+  "3"
   "3"
 )
 
 PREVIEW_EMA_MOMENTA=(
-  ""
   "0.5"
-  ""
   "0.5"
-  ""
+  "0.5"
+  "0.5"
+  "0.5"
   "0.5"
 )
 
 RUN_NAMES=(
-  "suploss_only"
-  "suploss_proto_rel_p3_prem0.5"
-  "suploss_only"
-  "suploss_proto_rel_p3_prem0.5"
-  "suploss_only"
-  "suploss_proto_rel_p3_prem0.5"
+  "suploss_rel_p3_prem0.5_topk5"
+  "suploss_proto_rel_p3_prem0.5_topk5"
+  "suploss_rel_p3_prem0.5_topk10"
+  "suploss_proto_rel_p3_prem0.5_topk10"
+  "suploss_rel_p3_prem0.5_topkall"
+  "suploss_proto_rel_p3_prem0.5_topkall"
+)
+
+REL_TOPK_DIFF_CLASSES_VALUES=(
+  "5"
+  "5"
+  "10"
+  "10"
+  "0"
+  "0"
 )
 
 SAMPLER_TYPES=(
@@ -235,8 +244,8 @@ if [[ ${#ABLATION_MODES[@]} -ne ${TOTAL_TASKS} || ${#DEFAULT_NUM_PROTOTYPES[@]} 
     echo "[Error] Experiment arrays have inconsistent lengths." >&2
     exit 2
 fi
-if [[ ${#K_QUEUES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_TYPES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_LABELS[@]} -ne ${TOTAL_TASKS} ]]; then
-    echo "[Error] K_queue or sampler arrays have inconsistent lengths." >&2
+if [[ ${#K_QUEUES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_TYPES[@]} -ne ${TOTAL_TASKS} || ${#SAMPLER_LABELS[@]} -ne ${TOTAL_TASKS} || ${#REL_TOPK_DIFF_CLASSES_VALUES[@]} -ne ${TOTAL_TASKS} ]]; then
+    echo "[Error] K_queue, sampler, or rel top-k arrays have inconsistent lengths." >&2
     exit 2
 fi
 
@@ -253,6 +262,7 @@ RUN_NAME="${RUN_NAMES[$IDX]}"
 K_QUEUE="${K_QUEUES[$IDX]}"
 SAMPLER_TYPE="${SAMPLER_TYPES[$IDX]}"
 SAMPLER_LABEL="${SAMPLER_LABELS[$IDX]}"
+REL_TOPK_DIFF_CLASSES="${REL_TOPK_DIFF_CLASSES_VALUES[$IDX]}"
 WEIGHT_SAVE_PATH="${SAVE_ROOT}/sampler_${SAMPLER_LABEL}/K${K_QUEUE}/${RUN_NAME}"
 
 mkdir -p "${SAVE_ROOT}" "${LOG_ROOT}"
@@ -400,6 +410,7 @@ echo "K_QUEUE                  = ${K_QUEUE}"
 echo "ABLATION_MODE            = ${ABLATION_MODE}"
 echo "DEFAULT_NUM_PROTOTYPE    = ${DEFAULT_NUM_PROTOTYPE}"
 echo "PREVIEW_EMA_MOMENTUM     = ${PREVIEW_EMA_MOMENTUM}"
+echo "REL_TOPK_DIFF_CLASSES    = ${REL_TOPK_DIFF_CLASSES}"
 echo "TRAIN_MANIFEST_NAME      = ${TRAIN_MANIFEST_NAME}"
 echo "NORMALIZATION_STATS_JSON = ${NORMALIZATION_STATS_JSON}"
 echo "RGB_MEAN                 = ${RGB_MEAN[*]}"

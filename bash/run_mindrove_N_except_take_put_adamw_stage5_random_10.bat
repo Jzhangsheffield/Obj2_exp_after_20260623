@@ -2,8 +2,8 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM ============================================================
-REM MindRove EMG + IMU stage-5-loss random-sampler ablation for N_as_test / train_manifest_except_take_put.jsonl
-REM 
+REM MindRove EMG + IMU stage-5-loss rel-topk random-sampler ablation for N_as_test / train_manifest_except_take_put.jsonl
+REM 2 signals x [proto-only + rel_topk_diff_classes(3,5,10,all)] = 10 runs.
 REM Normalization is copied from N_as_test\train_normalization_stats\except_take_put_mindrove_stats.json and rounded to 4 decimals.
 REM ============================================================
 
@@ -16,7 +16,7 @@ set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
 set "TRAIN_MANIFEST_NAME=N_as_test\train_manifest_except_take_put.jsonl"
 set "LABEL_MAP_JSON=%DATASET_ROOT%\label_map_except_take_put.json"
 set "NORMALIZATION_STATS_JSON=%DATASET_ROOT%\N_as_test\train_normalization_stats\except_take_put_mindrove_stats.json"
-set "OUT_ROOT=%PROJECT_ROOT%\results\mindrove_N_except_take_put_adamw_stage5_random_2"
+set "OUT_ROOT=%PROJECT_ROOT%\results\mindrove_N_except_take_put_adamw_stage5_reltopk_random_10"
 set "PYTHON_BIN=python"
 
 cd /d "%PROJECT_ROOT%"
@@ -94,7 +94,7 @@ set "EXCLUDE_INVALID_QUEUE_ARG="
 REM ------------------------------
 REM 6) Prototype / relative loss parameters
 REM ------------------------------
-set "WARMUP_EPOCHS=50"
+set "WARMUP_EPOCHS=5"
 set "RECLUSTER_INTERVAL=10"
 set "NUM_PROTOTYPES_PER_CLASS="
 set "LAMBDA_PROTO=1.0"
@@ -111,6 +111,7 @@ set "REL_DIFF_MARGIN=0.01"
 set "REL_SAME_WEIGHT=1.0"
 set "REL_DIFF_WEIGHT=1.0"
 set "REL_TOPK_DIFF_CLASSES=3"
+set "REL_TOPK_DIFF_CLASSES_VALUES=3 5 10 0"
 
 REM ------------------------------
 REM 7) Loss-stage schedule parameters
@@ -172,7 +173,7 @@ set "IMU_AUG_ARGS=--mindrove_time_warp_prob 0.5 --mindrove_time_warp_sigma 0.2 -
 if not exist "%OUT_ROOT%" mkdir "%OUT_ROOT%"
 
 echo ============================================================
-echo MindRove EMG + IMU stage-5-loss random-sampler ablation for N_as_test / train_manifest_except_take_put.jsonl
+echo MindRove EMG + IMU stage-5-loss rel-topk random-sampler ablation for N_as_test / train_manifest_except_take_put.jsonl
 echo Manifest: %TRAIN_MANIFEST_NAME%
 echo Stats:    %NORMALIZATION_STATS_JSON%
 echo Output:   %OUT_ROOT%
@@ -212,10 +213,14 @@ echo Running signal=!CUR_SIGNAL! aug=!CUR_AUG_POLICY! target_len=!CUR_TARGET_LEN
 echo ============================================================
 
 if /I "!CUR_SIGNAL!"=="emg" (
+    set "CUR_PROTO_PROTO=1"
+    set "CUR_PROTO_RUN_NAME=suploss_proto_p1_stage5"
     set "CUR_PROTO_REL_PREM=0.5"
     set "CUR_PROTO_REL_PROTO=1"
     set "CUR_PROTO_REL_RUN_NAME=suploss_proto_rel_p1_prem0.5_stage5"
 ) else if /I "!CUR_SIGNAL!"=="imu" (
+    set "CUR_PROTO_PROTO=2"
+    set "CUR_PROTO_RUN_NAME=suploss_proto_p2_stage5"
     set "CUR_PROTO_REL_PREM=0.3"
     set "CUR_PROTO_REL_PROTO=2"
     set "CUR_PROTO_REL_RUN_NAME=suploss_proto_rel_p2_prem0.3_stage5"
@@ -225,8 +230,19 @@ if /I "!CUR_SIGNAL!"=="emg" (
 )
 
 for %%K in (%K_QUEUE_VALUES%) do (
-    call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto_rel" "!CUR_PROTO_REL_PREM!" "!CUR_PROTO_REL_PROTO!" "!CUR_PROTO_REL_RUN_NAME!" "%%K" "random" "%RANDOM_SAMPLER_TYPE_ARG%"
+    call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto" "" "!CUR_PROTO_PROTO!" "!CUR_PROTO_RUN_NAME!" "%%K" "random" "%RANDOM_SAMPLER_TYPE_ARG%" "%REL_TOPK_DIFF_CLASSES%"
     if errorlevel 1 exit /b 1
+
+    for %%T in (%REL_TOPK_DIFF_CLASSES_VALUES%) do (
+        if "%%T"=="0" (
+            set "CUR_TOPK_LABEL=all"
+        ) else (
+            set "CUR_TOPK_LABEL=%%T"
+        )
+
+        call :run_one_cfg "!CUR_SIGNAL!" "contrastive_proto_rel" "!CUR_PROTO_REL_PREM!" "!CUR_PROTO_REL_PROTO!" "!CUR_PROTO_REL_RUN_NAME!_topk!CUR_TOPK_LABEL!" "%%K" "random" "%RANDOM_SAMPLER_TYPE_ARG%" "%%T"
+        if errorlevel 1 exit /b 1
+    )
 )
 
 exit /b 0
@@ -243,6 +259,7 @@ set "RG_RUN_NAME=%~5"
 set "RG_K_QUEUE=%~6"
 set "RG_SAMPLER_LABEL=%~7"
 set "RG_SAMPLER_TYPE_ARG=%~8"
+set "RG_REL_TOPK=%~9"
 
 set "RG_SAMPLER_TIER_ARG="
 set "RG_BALANCED_CLASSES_PER_BATCH_ARG="
@@ -266,7 +283,7 @@ if /I "!RG_ABLATION!"=="contrastive_proto_rel" set "PREVIEW_ARG=--preview_ema_mo
 set "RUN_DIR=%OUT_ROOT%\signal_!RG_SIGNAL!\sampler_!RG_SAMPLER_LABEL!\K!RG_K_QUEUE!\!RG_RUN_NAME!"
 
 echo.
-echo [Run] signal=!RG_SIGNAL! sampler=!RG_SAMPLER_LABEL! K_queue=!RG_K_QUEUE! ablation=!RG_ABLATION! proto=!RG_PROTO! preview_ema_momentum=!RG_PREM! save=!RUN_DIR!
+echo [Run] signal=!RG_SIGNAL! sampler=!RG_SAMPLER_LABEL! K_queue=!RG_K_QUEUE! rel_topk_diff_classes=!RG_REL_TOPK! ablation=!RG_ABLATION! proto=!RG_PROTO! preview_ema_momentum=!RG_PREM! save=!RUN_DIR!
 
 if /I "!RG_SIGNAL!"=="emg" (
     "%PYTHON_BIN%" "%PY_SCRIPT%" ^
@@ -332,7 +349,7 @@ if /I "!RG_SIGNAL!"=="emg" (
       --rel_diff_margin %REL_DIFF_MARGIN% ^
       --rel_same_weight %REL_SAME_WEIGHT% ^
       --rel_diff_weight %REL_DIFF_WEIGHT% ^
-      --rel_topk_diff_classes %REL_TOPK_DIFF_CLASSES% ^
+      --rel_topk_diff_classes !RG_REL_TOPK! ^
       %ENABLE_LOSS_STAGE_SCHEDULE_ARG% ^
       --proto_loss_start_epoch %PROTO_LOSS_START_EPOCH% ^
       --rel_loss_start_epoch %REL_LOSS_START_EPOCH% ^
@@ -433,7 +450,7 @@ if /I "!RG_SIGNAL!"=="emg" (
       --rel_diff_margin %REL_DIFF_MARGIN% ^
       --rel_same_weight %REL_SAME_WEIGHT% ^
       --rel_diff_weight %REL_DIFF_WEIGHT% ^
-      --rel_topk_diff_classes %REL_TOPK_DIFF_CLASSES% ^
+      --rel_topk_diff_classes !RG_REL_TOPK! ^
       %ENABLE_LOSS_STAGE_SCHEDULE_ARG% ^
       --proto_loss_start_epoch %PROTO_LOSS_START_EPOCH% ^
       --rel_loss_start_epoch %REL_LOSS_START_EPOCH% ^
@@ -476,7 +493,7 @@ if /I "!RG_SIGNAL!"=="emg" (
 )
 
 if errorlevel 1 (
-    echo [Error] Failed: signal=!RG_SIGNAL! sampler=!RG_SAMPLER_LABEL! K_queue=!RG_K_QUEUE! ablation=!RG_ABLATION! proto=!RG_PROTO! preview_ema_momentum=!RG_PREM!
+    echo [Error] Failed: signal=!RG_SIGNAL! sampler=!RG_SAMPLER_LABEL! K_queue=!RG_K_QUEUE! rel_topk_diff_classes=!RG_REL_TOPK! ablation=!RG_ABLATION! proto=!RG_PROTO! preview_ema_momentum=!RG_PREM!
     exit /b 1
 )
 

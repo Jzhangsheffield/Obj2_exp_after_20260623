@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ft_rgb_N_stage5_reltopk_rand9_seed1
+#SBATCH --job-name=ft_rgb_N_reltopk_rand6_seed1
 #SBATCH --partition=gpu,gpu-h100,gpu-h100-nvl
 #SBATCH --qos=gpu
 #SBATCH --nodes=1
@@ -10,13 +10,13 @@
 #SBATCH --time=10:00:00
 #SBATCH --mail-user=jzhang319@sheffield.ac.uk
 #SBATCH --mail-type=ALL
-#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/ft_rgb_N_except_take_put_adamw_stage5_reltopk_random_9_seed1_%j.out
-#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/ft_rgb_N_except_take_put_adamw_stage5_reltopk_random_9_seed1_%j.err
+#SBATCH --output=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/ft_rgb_N_except_take_put_adamw_reltopk_random_6_seed1_%j.out
+#SBATCH --error=/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/ft_and_test/out/ft_rgb_N_except_take_put_adamw_reltopk_random_6_seed1_%j.err
 
 set -euo pipefail
 
 # ============================================================
-# RGB finetuning for rgb_N_except_take_put_adamw_stage5_reltopk_random_9 contrastive weights: N_as_test / train_manifest_except_take_put.jsonl
+# RGB finetuning for rgb_N_except_take_put_adamw_reltopk_random_6 contrastive weights: N_as_test / train_manifest_except_take_put.jsonl
 # - seed=1 only
 # - scratch baseline: full fine-tuning from random init
 # - pretrained: recursively find every checkpoint_0200.pth under PRETRAIN_PARENT
@@ -31,12 +31,12 @@ TRAIN_MANIFEST="${DATASET_ROOT}/N_as_test/train_manifest_except_take_put.jsonl"
 VAL_MANIFEST="${DATASET_ROOT}/N_as_test/val_manifest_except_take_put.jsonl"
 LABEL_MAP_JSON="${DATASET_ROOT}/label_map_except_take_put.json"
 
-PRETRAIN_PARENT="${PROJECT_ROOT}/results/rgb_N_except_take_put_adamw_stage5_reltopk_random_9"
+PRETRAIN_PARENT="${PROJECT_ROOT}/results/rgb_N_except_take_put_adamw_reltopk_random_6"
 CHECKPOINT_NAME="checkpoint_0200.pth"
-EXPECTED_NUM_CKPTS=9
+EXPECTED_NUM_CKPTS=6
 ALLOW_CKPT_COUNT_MISMATCH=0
 
-OUTPUT_ROOT="${PROJECT_ROOT}/results/ft_rgb_N_except_take_put_adamw_stage5_reltopk_random_9_seed1"
+OUTPUT_ROOT="${PROJECT_ROOT}/results/ft_rgb_N_except_take_put_adamw_reltopk_random_6_seed1"
 SAVE_ROOT="${OUTPUT_ROOT}/weights"
 DATAMAP_ROOT="${OUTPUT_ROOT}/datamaps"
 CHECKPOINT_LIST_TXT="${OUTPUT_ROOT}/checkpoint_0200_paths.txt"
@@ -110,7 +110,7 @@ KEEP_PRETRAINED_HEAD=0
 PRETRAINED_STRICT=0
 PRETRAINED_TAG_MODE="relative_to_anchor"
 PRETRAINED_TAG_LAST_K=2
-PRETRAINED_TAG_ANCHOR="rgb_N_except_take_put_adamw_stage5_reltopk_random_9"
+PRETRAINED_TAG_ANCHOR="rgb_N_except_take_put_adamw_reltopk_random_6"
 
 USE_WEIGHTED_SAMPLER=0
 SAMPLER_TIER="${TIER_MODE}"

@@ -2,7 +2,7 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM ============================================================
-REM Fine-tune MindRove EMG + IMU contrastive checkpoints for mindrove_N_except_take_put_adamw_stage5_random_2
+REM Fine-tune MindRove EMG + IMU contrastive checkpoints for mindrove_N_except_take_put_adamw_reltopk_random_12
 REM - seed=1 only
 REM - scratch baseline: full training from random initialization
 REM - pretrained: recursively find checkpoint_0200.pth under each signal pretrain root
@@ -17,8 +17,8 @@ set "PROJECT_ROOT=D:\Junxi_data\Obj2_experiments_after_260623"
 set "PY_SCRIPT=%PROJECT_ROOT%\ft_and_test\train_mapstyle_finetune_and_test.py"
 set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
 set "LABEL_MAP_JSON=%DATASET_ROOT%\label_map_except_take_put.json"
-set "PRETRAIN_PARENT=%PROJECT_ROOT%\results\mindrove_N_except_take_put_adamw_stage5_random_2"
-set "OUTPUT_ROOT=%PROJECT_ROOT%\results\ft_mindrove_N_except_take_put_adamw_stage5_random_2_seed1"
+set "PRETRAIN_PARENT=%PROJECT_ROOT%\results\mindrove_N_except_take_put_adamw_reltopk_random_12"
+set "OUTPUT_ROOT=%PROJECT_ROOT%\results\ft_mindrove_N_except_take_put_adamw_reltopk_random_12_seed1"
 
 REM Optional: set these if your signal roots are not PRETRAIN_PARENT\signal_emg and PRETRAIN_PARENT\signal_imu.
 set "EMG_PRETRAIN_ROOT="
@@ -29,12 +29,12 @@ REM set "PROJECT_ROOT=D:\Junxi_data\Objective2_thermal_crimp\thermal_crimp\exper
 REM set "PY_SCRIPT=%PROJECT_ROOT%\ft_and_test\train_mapstyle_finetune_and_test.py"
 REM set "DATASET_ROOT=C:\Junxi_data_for_training_speedup\Final_Mapstyle_Dataset"
 REM set "LABEL_MAP_JSON=%DATASET_ROOT%\label_map_except_take_put.json"
-REM set "PRETRAIN_PARENT=%PROJECT_ROOT%\results\mindrove_N_except_take_put_adamw_stage5_random_2"
-REM set "OUTPUT_ROOT=%PROJECT_ROOT%\results\ft_mindrove_N_except_take_put_adamw_stage5_random_2_seed1"
+REM set "PRETRAIN_PARENT=%PROJECT_ROOT%\results\mindrove_N_except_take_put_adamw_reltopk_random_12"
+REM set "OUTPUT_ROOT=%PROJECT_ROOT%\results\ft_mindrove_N_except_take_put_adamw_reltopk_random_12_seed1"
 
 set "PYTHON_BIN=python"
 set "CHECKPOINT_NAME=checkpoint_0200.pth"
-set "EXPECTED_NUM_CKPTS_PER_SIGNAL=1"
+set "EXPECTED_NUM_CKPTS_PER_SIGNAL=6"
 set "ALLOW_CKPT_COUNT_MISMATCH=0"
 set "DRY_RUN=0"
 
@@ -129,7 +129,7 @@ set "KEEP_PRETRAINED_HEAD_ARG="
 set "PRETRAINED_STRICT_ARG="
 set "PRETRAINED_TAG_MODE=relative_to_anchor"
 set "PRETRAINED_TAG_LAST_K=3"
-set "PRETRAINED_TAG_ANCHOR=mindrove_N_except_take_put_adamw_stage5_random_2"
+set "PRETRAINED_TAG_ANCHOR=mindrove_N_except_take_put_adamw_reltopk_random_12"
 
 REM ============================================================
 REM 9) Class imbalance / loss options
