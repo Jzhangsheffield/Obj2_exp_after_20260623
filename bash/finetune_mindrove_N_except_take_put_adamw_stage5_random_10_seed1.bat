@@ -13,7 +13,7 @@ REM ============================================================
 REM ============================================================
 REM 1) Paths to fill in
 REM ============================================================
-set "PROJECT_ROOT=D:\Junxi_data\Obj2_experiments_after_260623"
+set "PROJECT_ROOT=D:\junxi_data\experiments_after_260623"
 set "PY_SCRIPT=%PROJECT_ROOT%\ft_and_test\train_mapstyle_finetune_and_test.py"
 set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
 set "LABEL_MAP_JSON=%DATASET_ROOT%\label_map_except_take_put.json"

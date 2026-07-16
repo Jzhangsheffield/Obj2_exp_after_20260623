@@ -10,7 +10,7 @@ REM ============================================================
 REM ------------------------------
 REM 1) Project / data paths
 REM ------------------------------
-set "PROJECT_ROOT=D:\Junxi_data\Obj2_experiments_after_260623"
+set "PROJECT_ROOT=D:\junxi_data\experiments_after_260623"
 set "PY_SCRIPT=%PROJECT_ROOT%\train\MoCo_main_supcon_mapstyle_varproto_debug_mindrove_modified_varlen_topk_adamw.py"
 set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
 set "TRAIN_MANIFEST_NAME=N_as_test\train_manifest_except_take_put.jsonl"

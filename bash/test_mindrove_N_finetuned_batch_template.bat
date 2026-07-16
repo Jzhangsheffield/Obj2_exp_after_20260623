@@ -49,7 +49,7 @@ set "TEST_MANIFEST_OVERRIDE="
 REM Weight parent root. Change only this if your output structure is:
 REM   WEIGHT_PARENT_ROOT\signal_emg\...
 REM   WEIGHT_PARENT_ROOT\signal_imu\...
-set "WEIGHT_PARENT_ROOT=D:\junxi_data\experiments_after_260623\results\ft_mindrove_N_except_take_put_adamw_sampler_18_seed1\weights"
+set "WEIGHT_PARENT_ROOT=D:\junxi_data\experiments_after_260623\results\ft_mindrove_N_except_take_put_adamw_stage5_reltopk_10_seed1\weights"
 
 REM Optional signal root overrides. Leave empty to use WEIGHT_PARENT_ROOT\signal_emg / signal_imu.
 set "EMG_WEIGHT_ROOT="
