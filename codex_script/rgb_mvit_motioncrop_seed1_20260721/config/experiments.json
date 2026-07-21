@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "experiment_package": "rgb_mvit_motioncrop_seed1_20260721",
+  "seed": 1,
+  "roots": {
+    "windows_project": "D:/Junxi_data/Obj2_experiments_after_260623",
+    "windows_dataset": "C:/Junxi_data_for_training_speedup/Final_Mapstyle_Dataset",
+    "hpc_project": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623",
+    "hpc_dataset": "/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset"
+  },
+  "output_rel": "results/rgb_mvit_motioncrop_seed1_20260721",
+  "task": {
+    "train_manifest": "N_as_test/train_manifest_except_take_put.jsonl",
+    "val_manifest": "N_as_test/val_manifest_except_take_put.jsonl",
+    "test_manifest": "N_as_test/test_manifest_except_take_put.jsonl",
+    "label_map": "label_map_except_take_put.json",
+    "tier_mode": "tier1",
+    "num_classes": 15,
+    "n_frames": 16,
+    "image_size": 224,
+    "original_rgb_key": "00143",
+    "motion_crop_rgb_key": "00143_motion_crop_m32",
+    "original_mean": [0.3752, 0.3864, 0.3960],
+    "original_std": [0.2934, 0.2724, 0.2644]
+  },
+  "augmentation": {
+    "temporal_view_mode": "shared",
+    "rrc_scale": [0.85, 1.0],
+    "rrc_ratio": [0.9, 1.1],
+    "hflip_p": 0.5,
+    "vflip_p": 0.0,
+    "jitter_p": 0.2,
+    "jitter_strength": [0.1, 0.1, 0.1, 0.02],
+    "gray_p": 0.0,
+    "blur_p": 0.1,
+    "blur_kernel": 5,
+    "blur_sigma": [0.1, 1.0]
+  },
+  "pretrain_common": {
+    "epochs": 200,
+    "num_workers": 8,
+    "proj_dim": 128,
+    "queue_size": 1088,
+    "temperature": 0.07,
+    "num_positive": 6,
+    "weight_decay": 0.0001,
+    "optimizer": "adamw",
+    "schedule": [50, 100, 150],
+    "save_interval": 10
+  },
+  "classifier_common": {
+    "epochs": 100,
+    "num_workers_train": 8,
+    "num_workers_val": 6,
+    "num_workers_test": 8,
+    "weight_decay": 0.0001,
+    "optimizer": "adamw",
+    "schedule": [50, 75],
+    "save_period": 10,
+    "head_lr": 0.001
+  },
+  "pretrain_experiments": [
+    {
+      "id": "mvit_v2_s_original_supcon",
+      "backbone": "mvit_v2_s",
+      "rgb_source": "original",
+      "batch_size": 8,
+      "learning_rate": 0.0001
+    },
+    {
+      "id": "resnet3d18_motioncrop_supcon",
+      "backbone": "resnet3d18",
+      "rgb_source": "motion_crop",
+      "batch_size": 64,
+      "learning_rate": 0.001
+    }
+  ],
+  "classifier_experiments": [
+    {
+      "id": "mvit_v2_s_original_scratch",
+      "backbone": "mvit_v2_s",
+      "rgb_source": "original",
+      "mode": "full",
+      "pretrain_id": null,
+      "batch_size": 8,
+      "learning_rate": 0.0001
+    },
+    {
+      "id": "mvit_v2_s_original_supcon_head",
+      "backbone": "mvit_v2_s",
+      "rgb_source": "original",
+      "mode": "head_only",
+      "pretrain_id": "mvit_v2_s_original_supcon",
+      "batch_size": 16,
+      "learning_rate": 0.001
+    },
+    {
+      "id": "resnet3d18_motioncrop_scratch",
+      "backbone": "resnet3d18",
+      "rgb_source": "motion_crop",
+      "mode": "full",
+      "pretrain_id": null,
+      "batch_size": 64,
+      "learning_rate": 0.001
+    },
+    {
+      "id": "resnet3d18_motioncrop_supcon_head",
+      "backbone": "resnet3d18",
+      "rgb_source": "motion_crop",
+      "mode": "head_only",
+      "pretrain_id": "resnet3d18_motioncrop_supcon",
+      "batch_size": 64,
+      "learning_rate": 0.001
+    }
+  ]
+}

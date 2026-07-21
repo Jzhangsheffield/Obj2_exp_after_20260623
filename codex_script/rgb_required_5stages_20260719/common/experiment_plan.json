@@ -1,0 +1,227 @@
+{
+  "schema_version": 2,
+  "created": "2026-07-19",
+  "updated": "2026-07-21",
+  "project_root": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623",
+  "dataset_root": "/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset",
+  "task": {
+    "train_manifest_rel": "N_as_test/train_manifest_except_take_put.jsonl",
+    "val_manifest_rel": "N_as_test/val_manifest_except_take_put.jsonl",
+    "test_manifest_rel": "N_as_test/test_manifest_except_take_put.jsonl",
+    "label_map_rel": "label_map_except_take_put.json",
+    "tier_mode": "tier1",
+    "num_classes": 15,
+    "n_frames": 16,
+    "rgb_camera_id": "00143",
+    "rgb_mean": [0.3752, 0.3864, 0.3960],
+    "rgb_std": [0.2934, 0.2724, 0.2644]
+  },
+  "pretrain_augmentation": {
+    "temporal_mode": "shared",
+    "min_temporal_overlap": 1.0,
+    "out_hw": [224, 224],
+    "rrc_scale": [0.85, 1.0],
+    "rrc_ratio": [0.9, 1.1],
+    "hflip_p": 0.5,
+    "vflip_p": 0.0,
+    "jitter_p": 0.2,
+    "jitter_strength": [0.1, 0.1, 0.1, 0.02],
+    "gray_p": 0.0,
+    "blur_p": 0.1,
+    "blur_kernel": 5,
+    "blur_sigma": [0.1, 1.0]
+  },
+  "finetune_augmentation": {
+    "rgb_size": 224,
+    "rrc_scale": [0.85, 1.0],
+    "rrc_ratio": [0.9, 1.1],
+    "hflip_p": 0.5,
+    "vflip_p": 0.0,
+    "jitter_p": 0.0,
+    "gray_p": 0.0,
+    "blur_p": 0.0
+  },
+  "pretrain_common": {
+    "epochs": 200,
+    "batch_size": 64,
+    "num_workers": 8,
+    "model_depth": 18,
+    "proj_dim": 128,
+    "K_queue": 1088,
+    "temperature": 0.07,
+    "contrastive_loss": "suploss",
+    "num_positive": 6,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "optimizer": "adamw",
+    "schedule": [50, 100, 150],
+    "save_interval": 10,
+    "print_freq": 10,
+    "recluster_interval": 10,
+    "proto_temperature": 0.07,
+    "proto_ema_momentum": 0.99,
+    "preview_ema_momentum": 0.9,
+    "rel_same_margin": 0.01,
+    "rel_diff_margin": 0.01
+  },
+  "finetune_common": {
+    "epochs": 100,
+    "batch_size": 64,
+    "num_workers_train": 8,
+    "num_workers_val": 6,
+    "prefetch_factor": 2,
+    "model_depth": 18,
+    "optimizer": "adamw",
+    "head_lr": 0.001,
+    "weight_decay": 0.0001,
+    "schedule": [50, 75],
+    "save_period": 10,
+    "best_after_epoch": 0
+  },
+  "test_common": {"batch_size": 64, "num_workers": 8, "prefetch_factor": 2},
+  "test_lock": {"environment_variable": "ALLOW_LOCKED_TEST", "required_value": "YES"},
+  "stages": {
+    "stage0": {
+      "id": "stage0",
+      "folder": "stage0_repro_baseline",
+      "pretrain_output_rel": "results/cl_rgb_req_s0_20260719",
+      "finetune_output_rel": "results/ft_rgb_req_s0_20260719",
+      "pretrain_experiments": [
+        {"index": 0, "id": "sup_s1_a", "seed": 1, "repeat": "a", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "sup_s1_b", "seed": 1, "repeat": "b", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 2, "id": "sup_s2", "seed": 2, "repeat": "a", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 3, "id": "sup_s3", "seed": 3, "repeat": "a", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0}
+      ],
+      "finetune_experiments": [
+        {"index": 0, "id": "scratch_s1_a", "pretrain_id": null, "seed": 1, "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 1, "id": "scratch_s1_b", "pretrain_id": null, "seed": 1, "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 2, "id": "scratch_s2", "pretrain_id": null, "seed": 2, "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 3, "id": "scratch_s3", "pretrain_id": null, "seed": 3, "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 4, "id": "sup_s1_a_ft", "pretrain_id": "sup_s1_a", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 5, "id": "sup_s1_b_ft", "pretrain_id": "sup_s1_b", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 6, "id": "sup_s2_ft", "pretrain_id": "sup_s2", "seed": 2, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 7, "id": "sup_s3_ft", "pretrain_id": "sup_s3", "seed": 3, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001}
+      ]
+    },
+    "stage1": {
+      "id": "stage1",
+      "folder": "stage1_proto_form",
+      "pretrain_output_rel": "results/cl_rgb_req_s1_20260719",
+      "finetune_output_rel": "results/ft_rgb_req_s1_20260719",
+      "pretrain_experiments": [
+        {"index": 0, "id": "p0_sup", "seed": 1, "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "p1_single_p1", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "single", "num_prototypes": 1, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 2, "id": "p2_single_p2", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "single", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 3, "id": "p3_all_p2", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "all", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 4, "id": "p4_soft_p2", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 5, "id": "p5_single_p3", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "single", "num_prototypes": 3, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 6, "id": "p6_all_p3", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 7, "id": "p7_soft_p3", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "soft", "num_prototypes": 3, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50}
+      ],
+      "finetune_experiments": [
+        {"index": 0, "id": "p0_sup_ft", "pretrain_id": "p0_sup", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 1, "id": "p1_single_p1_ft", "pretrain_id": "p1_single_p1", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 2, "id": "p2_single_p2_ft", "pretrain_id": "p2_single_p2", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 3, "id": "p3_all_p2_ft", "pretrain_id": "p3_all_p2", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 4, "id": "p4_soft_p2_ft", "pretrain_id": "p4_soft_p2", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 5, "id": "p5_single_p3_ft", "pretrain_id": "p5_single_p3", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 6, "id": "p6_all_p3_ft", "pretrain_id": "p6_all_p3", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 7, "id": "p7_soft_p3_ft", "pretrain_id": "p7_soft_p3", "seed": 1, "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001}
+      ]
+    },
+    "stage3": {
+      "id": "stage3",
+      "folder": "stage3_temporal_stride",
+      "pretrain_output_rel": "results/cl_rgb_req_t3_20260721",
+      "finetune_output_rel": "results/ft_rgb_req_t3_20260721",
+      "pretrain_experiments": [
+        {"index": 0, "id": "t3_sup_s1", "seed": 1, "backbone_temporal_mode": "t3_lfb", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "t3_sup_s2", "seed": 2, "backbone_temporal_mode": "t3_lfb", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 2, "id": "t3_sup_s3", "seed": 3, "backbone_temporal_mode": "t3_lfb", "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0}
+      ],
+      "finetune_experiments": [
+        {"index": 0, "id": "scratch_t3_s1", "pretrain_id": null, "seed": 1, "backbone_temporal_mode": "t3_lfb", "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 1, "id": "scratch_t3_s2", "pretrain_id": null, "seed": 2, "backbone_temporal_mode": "t3_lfb", "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 2, "id": "scratch_t3_s3", "pretrain_id": null, "seed": 3, "backbone_temporal_mode": "t3_lfb", "finetune_mode": "full", "head_lr": 0.001},
+        {"index": 3, "id": "t3_sup_s1_ft", "pretrain_id": "t3_sup_s1", "seed": 1, "backbone_temporal_mode": "t3_lfb", "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 4, "id": "t3_sup_s2_ft", "pretrain_id": "t3_sup_s2", "seed": 2, "backbone_temporal_mode": "t3_lfb", "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001},
+        {"index": 5, "id": "t3_sup_s3_ft", "pretrain_id": "t3_sup_s3", "seed": 3, "backbone_temporal_mode": "t3_lfb", "finetune_mode": "full", "backbone_lr": 0.0003, "head_lr": 0.001}
+      ]
+    },
+    "stage4": {
+      "id": "stage4",
+      "folder": "stage4_rel_mechanism",
+      "pretrain_output_rel": "results/cl_rgb_req_s4_20260719",
+      "finetune_output_rel": "results/ft_rgb_req_s4_20260719",
+      "pretrain_experiments": [
+        {"index": 0, "id": "r0_sup", "seed": 1, "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "r1_current_p3", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 0, "preview_ema_momentum": 0.5},
+        {"index": 2, "id": "r2_topk3", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.5},
+        {"index": 3, "id": "r3_topk5", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 5, "preview_ema_momentum": 0.5},
+        {"index": 4, "id": "r4_topk10", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 10, "preview_ema_momentum": 0.5},
+        {"index": 5, "id": "r5_diff_k3", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.5},
+        {"index": 6, "id": "r6_diff_k5", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 5, "preview_ema_momentum": 0.5},
+        {"index": 7, "id": "r7_diff_k10", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 50, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 10, "preview_ema_momentum": 0.5},
+        {"index": 8, "id": "r8_diff_k3_s100", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 100, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.5},
+        {"index": 9, "id": "r9_diff_k3_s125", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.5},
+        {"index": 10, "id": "r10_diff_k3_s150", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 150, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.5},
+        {"index": 11, "id": "r11_diff_k3_s125_pm08", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.8},
+        {"index": 12, "id": "r12_diff_k3_s125_pm09", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 13, "id": "r13_diff_k3_s125_pm099", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.99},
+        {"index": 14, "id": "r14_diff_k3_s125_pm09_l1", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 1.0, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 15, "id": "r15_diff_k3_s125_pm09_l2", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 2.0, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 16, "id": "r16_diff_k3_s125_pm09_l5", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 5.0, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9}
+      ],
+      "auto_finetune": true,
+      "finetune_experiments": []
+    },
+    "stage5": {
+      "id": "stage5",
+      "folder": "stage5_proto_rel",
+      "pretrain_output_rel": "results/cl_rgb_req_s5_20260719",
+      "finetune_output_rel": "results/ft_rgb_req_s5_20260719",
+      "pretrain_experiments": [
+        {"index": 0, "id": "c0_sup", "seed": 1, "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "c1_proto_only", "seed": 1, "ablation_mode": "contrastive_proto", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 0.0, "proto_start": 50},
+        {"index": 2, "id": "c2_rel_only", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 0.0, "lambda_rel": 2.0, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 3, "id": "c3_both_s50", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 2.0, "proto_start": 50, "rel_start": 50, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 4, "id": "c4_p50_r125", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 2.0, "proto_start": 50, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 5, "id": "c5_p50_r100", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 2.0, "proto_start": 50, "rel_start": 100, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 6, "id": "c6_p50_r150", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 2.0, "proto_start": 50, "rel_start": 150, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 7, "id": "c7_p25_r125", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 2.0, "proto_start": 25, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 8, "id": "c8_lp005", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.05, "lambda_rel": 2.0, "proto_start": 50, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 9, "id": "c9_lp020", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.2, "lambda_rel": 2.0, "proto_start": 50, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 10, "id": "c10_lr050", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 0.5, "proto_start": 50, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9},
+        {"index": 11, "id": "c11_lr500", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "soft", "num_prototypes": 2, "lambda_proto": 0.1, "lambda_rel": 5.0, "proto_start": 50, "rel_start": 125, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "preview_ema_momentum": 0.9}
+      ],
+      "auto_finetune": true,
+      "finetune_experiments": []
+    },
+    "stage7": {
+      "id": "stage7",
+      "folder": "stage7_finetune",
+      "pretrain_output_rel": "results/cl_rgb_req_s7_20260719",
+      "finetune_output_rel": "results/ft_rgb_req_s7_20260719",
+      "pretrain_experiments": [],
+      "source_candidates": [
+        {"id": "scratch", "pretrained_path_rel": null, "backbone_temporal_mode": "current"},
+        {"id": "sup", "pretrained_path_rel": "results/cl_rgb_req_s0_20260719/sup_s1_a/checkpoint_0200.pth", "backbone_temporal_mode": "current"},
+        {"id": "temporal_t3", "pretrained_path_rel": "results/cl_rgb_req_t3_20260721/t3_sup_s1/checkpoint_0200.pth", "backbone_temporal_mode": "t3_lfb"},
+        {"id": "proto", "pretrained_path_rel": "results/cl_rgb_req_s1_20260719/p4_soft_p2/checkpoint_0200.pth", "backbone_temporal_mode": "current"},
+        {"id": "rel", "pretrained_path_rel": "results/cl_rgb_req_s4_20260719/r15_diff_k3_s125_pm09_l2/checkpoint_0200.pth", "backbone_temporal_mode": "current"},
+        {"id": "proto_rel", "pretrained_path_rel": "results/cl_rgb_req_s5_20260719/c4_p50_r125/checkpoint_0200.pth", "backbone_temporal_mode": "current"}
+      ],
+      "scratch_modes": [
+        {"id": "head", "finetune_mode": "head_only", "backbone_lr": null},
+        {"id": "full", "finetune_mode": "full", "backbone_lr": null}
+      ],
+      "pretrained_modes": [
+        {"id": "head", "finetune_mode": "head_only", "backbone_lr": null},
+        {"id": "full_b1e4", "finetune_mode": "full", "backbone_lr": 0.0001},
+        {"id": "full_b3e4", "finetune_mode": "full", "backbone_lr": 0.0003},
+        {"id": "full_b1e3", "finetune_mode": "full", "backbone_lr": 0.001}
+      ],
+      "finetune_experiments": []
+    }
+  }
+}

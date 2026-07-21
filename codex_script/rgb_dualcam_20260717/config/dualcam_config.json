@@ -1,0 +1,76 @@
+{
+  "project_root": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623",
+  "dataset_root": "/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset",
+  "pretrain_output_rel": "results/cl_rgb_dualcam_N_20260717",
+  "finetune_output_rel": "results/ft_rgb_dualcam_N_20260717",
+  "task": {
+    "train_manifest_rel": "N_as_test/train_manifest_except_take_put.jsonl",
+    "val_manifest_rel": "N_as_test/val_manifest_except_take_put.jsonl",
+    "test_manifest_rel": "N_as_test/test_manifest_except_take_put.jsonl",
+    "label_map_rel": "label_map_except_take_put.json",
+    "tier_mode": "tier1",
+    "num_classes": 15,
+    "n_frames": 16
+  },
+  "cameras": {
+    "00143": {"manifest_key": "rgb_cam_00143", "mean": [0.3752, 0.3864, 0.3960], "std": [0.2934, 0.2724, 0.2644]},
+    "00152": {"manifest_key": "rgb_cam_00152", "mean": [0.413208, 0.425694, 0.427126], "std": [0.271570, 0.253219, 0.249541]}
+  },
+  "camera_stats_note": "00152 values estimated on N_as_test training data using up to 8 uniformly selected frames per clip and every 8th pixel in each spatial direction.",
+  "pretrain_common": {
+    "epochs": 200,
+    "batch_size": 64,
+    "num_workers": 8,
+    "model_depth": 18,
+    "proj_dim": 128,
+    "K_queue": 1088,
+    "temperature": 0.07,
+    "contrastive_loss": "suploss",
+    "num_positive": 6,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "optimizer": "adamw",
+    "schedule": [50, 100, 150],
+    "seed": 1,
+    "save_interval": 10,
+    "recluster_interval": 10,
+    "default_num_prototypes": 3,
+    "proto_temperature": 0.07,
+    "proto_ema_momentum": 0.99,
+    "preview_ema_momentum": 0.5,
+    "rel_same_margin": 0.01,
+    "rel_diff_margin": 0.01,
+    "rel_loss_end_epoch": 150
+  },
+  "augmentation": {
+    "rrc_scale": [0.85, 1.0],
+    "rrc_ratio": [0.9, 1.1],
+    "hflip_p": 0.5,
+    "vflip_p": 0.0,
+    "jitter_p": 0.2,
+    "jitter_strength": [0.1, 0.1, 0.1, 0.02],
+    "gray_p": 0.0,
+    "blur_p": 0.1,
+    "temporal_span_min": 0.85
+  },
+  "experiments": [
+    {"index": 0, "id": "a0_same143_sup", "stage": "view", "description": "Single-camera 00143 control with phase-aligned temporal views.", "view_mode": "same143", "hybrid_cross_probability": 0.0, "ablation_mode": "contrastive_only", "lambda_rel": 0.0, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.0},
+    {"index": 1, "id": "a1_same152_sup", "stage": "view", "description": "Single-camera 00152 control with its own normalization.", "view_mode": "same152", "hybrid_cross_probability": 0.0, "ablation_mode": "contrastive_only", "lambda_rel": 0.0, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.0},
+    {"index": 2, "id": "a2_cross_fixed_sup", "stage": "view", "description": "Query=00143 and key=00152 for every positive pair.", "view_mode": "cross_fixed", "hybrid_cross_probability": 1.0, "ablation_mode": "contrastive_only", "lambda_rel": 0.0, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.0},
+    {"index": 3, "id": "a3_cross_random_sup", "stage": "view", "description": "Cross-camera pair with random camera order to remove query/key camera-role bias.", "view_mode": "cross_random", "hybrid_cross_probability": 1.0, "ablation_mode": "contrastive_only", "lambda_rel": 0.0, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.0},
+    {"index": 4, "id": "a4_hybrid50_sup", "stage": "view", "description": "50% cross-camera and 50% same-camera positives.", "view_mode": "hybrid", "hybrid_cross_probability": 0.5, "ablation_mode": "contrastive_only", "lambda_rel": 0.0, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.0},
+    {"index": 5, "id": "b1_cross_random_rel050", "stage": "objective", "description": "Random-order cross-camera positives plus delayed relation loss.", "view_mode": "cross_random", "hybrid_cross_probability": 1.0, "ablation_mode": "contrastive_rel", "lambda_rel": 0.5, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.0},
+    {"index": 6, "id": "b2_cross_random_rel050_ce050", "stage": "objective", "description": "Random-order cross-camera positives, delayed relation loss, and 512D auxiliary CE.", "view_mode": "cross_random", "hybrid_cross_probability": 1.0, "ablation_mode": "contrastive_rel", "lambda_rel": 0.5, "rel_topk_diff_classes": 0, "aux_ce_weight": 0.5}
+  ],
+  "finetune_plan": [
+    {"index": 0, "id": "scratch", "pretrain_id": null, "backbone_lr": null},
+    {"index": 1, "id": "same143_blr1e4", "pretrain_id": "a0_same143_sup", "backbone_lr": 0.0001},
+    {"index": 2, "id": "same152_blr1e4", "pretrain_id": "a1_same152_sup", "backbone_lr": 0.0001},
+    {"index": 3, "id": "crossfix_blr1e4", "pretrain_id": "a2_cross_fixed_sup", "backbone_lr": 0.0001},
+    {"index": 4, "id": "crossrnd_blr1e4", "pretrain_id": "a3_cross_random_sup", "backbone_lr": 0.0001},
+    {"index": 5, "id": "crossrnd_blr3e4", "pretrain_id": "a3_cross_random_sup", "backbone_lr": 0.0003},
+    {"index": 6, "id": "hybrid50_blr1e4", "pretrain_id": "a4_hybrid50_sup", "backbone_lr": 0.0001},
+    {"index": 7, "id": "crossrel_blr1e4", "pretrain_id": "b1_cross_random_rel050", "backbone_lr": 0.0001},
+    {"index": 8, "id": "crossrelce_blr1e4", "pretrain_id": "b2_cross_random_rel050_ce050", "backbone_lr": 0.0001}
+  ]
+}
