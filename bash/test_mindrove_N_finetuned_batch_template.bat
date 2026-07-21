@@ -33,7 +33,7 @@ set "DATASET_ROOT=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset"
 REM Choose one preset: take_put / except_take_put / custom
 REM If TASK_PRESET=custom, edit LABEL_MAP_JSON, NUM_CLASSES, TEST_MANIFEST,
 REM and the CUSTOM_* normalization values in section 7.
-set "TASK_PRESET=take_put"
+set "TASK_PRESET=except_take_put"
 
 REM These are filled by :apply_task_preset unless TASK_PRESET=custom.
 set "LABEL_MAP_JSON=C:\MyFolder\mes19jz\Final_Mapstyle_Dataset\label_map_take_put.json"
@@ -49,7 +49,7 @@ set "TEST_MANIFEST_OVERRIDE="
 REM Weight parent root. Change only this if your output structure is:
 REM   WEIGHT_PARENT_ROOT\signal_emg\...
 REM   WEIGHT_PARENT_ROOT\signal_imu\...
-set "WEIGHT_PARENT_ROOT=D:\junxi_data\experiments_after_260623\results\ft_mindrove_N_take_put_adamw_44_seed1\weights"
+set "WEIGHT_PARENT_ROOT=D:\junxi_data\experiments_after_260623\results\ft_mindrove_N_except_take_put_adamw_stage5_reltopk_10_seed1\weights"
 
 REM Optional signal root overrides. Leave empty to use WEIGHT_PARENT_ROOT\signal_emg / signal_imu.
 set "EMG_WEIGHT_ROOT="
@@ -66,7 +66,7 @@ set "SUMMARY_ROOT=%OUTPUT_BASE%\summary"
 REM ============================================================
 REM 2) Checkpoint selection and batching
 REM ============================================================
-set "MATCH_BEST_VAL=0"
+set "MATCH_BEST_VAL=1"
 set "MATCH_BEST_VAL_BALANCED=0"
 set "MATCH_BEST_VAL_MACRO_F1=0"
 set "MATCH_LAST=1"
