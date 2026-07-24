@@ -1,6 +1,6 @@
 # RGB 必做五阶段实验包 + T3时间下采样消融
 
-本包原有五个阶段保持不变，并于2026-07-21增加 `stage3_temporal_stride`。目录名继续保留 `rgb_required_5stages_20260719`，避免破坏已有脚本路径；当前实际包含五个原始阶段和一个T3附加消融阶段。
+本包原有五个阶段保持不变，并于2026-07-21增加 `stage3_temporal_stride`，于2026-07-24增加 `stage4b_small_confirmation`。目录名继续保留 `rgb_required_5stages_20260719`，避免破坏已有脚本路径。
 
 ## 目录和执行顺序
 
@@ -8,8 +8,9 @@
 2. `stage3_temporal_stride`：比较当前 `16→1` 与T3 `16→8`时间压缩，运行T3 scratch和T3 SupLoss三seed。
 3. `stage1_proto_form`：比较 single / all / soft 三种 prototype 正样本定义和 1/2/3 prototype 数。
 4. `stage4_rel_mechanism`：关闭 proto loss，只研究 rel loss 的同类项、异类项、top-k、启动时间、preview EMA 和权重。
-5. `stage5_proto_rel`：用前两阶段推荐机制组合 SupLoss + proto + rel，做消融、启动顺序和权重灵敏度。
-6. `stage7_finetune`：固定候选预训练权重，比较 head-only（线性探测）和 full fine-tune 的 backbone LR，最后一次性锁定测试集。
+5. `stage4b_small_confirmation`：用三 seed、Null-rel、Null-P2 和 Null-P3 对 R9/R12、P4/P6 做完整因果确认。
+6. `stage5_proto_rel`：只在 Stage 4B 确认单项有效后，组合 SupLoss + proto + rel。
+7. `stage7_finetune`：固定候选预训练权重，比较 head-only（线性探测）和 full fine-tune 的 backbone LR，最后一次性锁定测试集。
 
 所有详细参数以 [ALL_EXPERIMENT_CONFIGS.md](ALL_EXPERIMENT_CONFIGS.md) 和 `common/experiment_plan.json` 为准。JSON 是运行器实际读取的唯一配置源，Markdown 是便于核对的说明。
 
@@ -47,6 +48,7 @@ export PYTHONPATH="$PROJECT_ROOT:${PYTHONPATH:-}"
 ```bash
 bash stage0_repro_baseline/slurm/submit_pipeline.sh
 bash stage3_temporal_stride/slurm/submit_pipeline.sh
+bash stage4b_small_confirmation/slurm/submit_pipeline.sh
 ```
 
 训练中断后，重新提交相同脚本即可。预训练会选择输出目录中最新的 `checkpoint_*.pth` 续训；微调入口会选择最新的 `epoch_*.pth`。完整的最终 checkpoint 或 `last.pth` 已存在时会跳过。
@@ -111,6 +113,8 @@ sbatch --dependency=afterok:123789 stage7_finetune/slurm/04_summarize.slurm
 ## 重要约束
 
 - 不要在 Stage 0/T3/1/4/5 用测试集筛选超参数；这些阶段的 test 脚本仅为完整性保留。
+- Stage 4B 的必做数组是 `0-14,17-22`；`15-16` 为可选 R7。
+- Stage 4B 只有在 R9 高于 Null-rel、P4/P6 高于各自 Null-proto 后，才能把增益归因于新损失。
 - 正式测试只寻找 `best_val_balanced.pth`，不会退回 `best_val.pth` 或 `last.pth`。
 - Stage 7 的 `head_only` 就是本项目当前实现能够支持的线性探测。
 - 若集群路径不同，只需在提交前设置 `PROJECT_ROOT` 与 `DATASET_ROOT`，无需修改 JSON。
