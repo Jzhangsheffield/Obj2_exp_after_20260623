@@ -7,6 +7,7 @@ import math
 import random
 import os
 import signal
+import statistics
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
@@ -343,8 +344,12 @@ parser.add_argument('--seed', type=int, default=None,
                     help='random seed; set to an integer for reproducibility, or leave unset for non-deterministic training')
 parser.add_argument("--print_freq", default=20, type=int,
                     help="print logs every N iterations")
-parser.add_argument("--save_interval", default=10, type=int,
+parser.add_argument("--save_interval", default=50, type=int,
                     help="save a checkpoint every N epochs")
+parser.add_argument("--prototype_diagnostic_interval", default=10, type=int,
+                    help="write lightweight prototype diagnostics every N epochs; <=0 disables")
+parser.add_argument("--rel_checkpoint_after_epochs", default=10, type=int,
+                    help="for relation runs, save full checkpoints immediately before RelLoss and this many active epochs after it starts; <=0 disables")
 parser.add_argument("--use_syncbn", action=argparse.BooleanOptionalAction, default=True,
                     help="whether to convert BatchNorm to SyncBatchNorm when running DDP")
 parser.add_argument("--find_unused_parameters", action=argparse.BooleanOptionalAction, default=False,
@@ -1807,6 +1812,302 @@ def save_checkpoint(state: dict, filename: str) -> None:
     torch.save(state, filename)
 
 
+def _cpu_proto_state(proto_state: Optional[dict]) -> Dict[str, Any]:
+    """提取体积很小、可独立分析的 prototype 状态。"""
+    if proto_state is None:
+        return {}
+    tensor_keys = (
+        "prototype_bank",
+        "class_num_prototypes",
+        "proto_rel_temperature_bank",
+        "sample_to_proto",
+        "sample_to_class",
+        "valid_sample_mask",
+    )
+    out: Dict[str, Any] = {}
+    for key in tensor_keys:
+        value = proto_state.get(key)
+        if torch.is_tensor(value):
+            out[key] = value.detach().cpu()
+        elif value is not None:
+            out[key] = value
+    out["enable_prototype_temperature_scaling"] = bool(
+        proto_state.get("enable_prototype_temperature_scaling", False)
+    )
+    return out
+
+
+def _build_full_checkpoint_state(
+    *,
+    epoch_one_based: int,
+    model,
+    optimizer,
+    args,
+    proto_state: Optional[dict],
+    save_reasons: List[str],
+) -> Dict[str, Any]:
+    """构造可续训的完整 checkpoint，并记录触发保存的原因。"""
+    proto_cpu = _cpu_proto_state(proto_state)
+    return {
+        "epoch": int(epoch_one_based),
+        "state_dict": _unwrap_model(model).state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "contrastive_loss_mode": args.contrastive_loss,
+                    "ablation_mode": args.ablation_mode,
+        "save_reasons": list(save_reasons),
+        "prototype_bank": proto_cpu.get("prototype_bank"),
+        "class_num_prototypes": proto_cpu.get("class_num_prototypes"),
+        "proto_rel_temperature_bank": proto_cpu.get("proto_rel_temperature_bank"),
+        "sample_to_proto": proto_cpu.get("sample_to_proto"),
+        "sample_to_class": proto_cpu.get("sample_to_class"),
+        "valid_sample_mask": proto_cpu.get("valid_sample_mask"),
+        "enable_prototype_temperature_scaling": proto_cpu.get(
+            "enable_prototype_temperature_scaling", False
+        ),
+    }
+
+
+def _prototype_diagnostic_payload(
+    *,
+    epoch_one_based: int,
+    args,
+    proto_state: Optional[dict],
+    label_name_to_id: Dict[str, int],
+    use_proto_state_epoch: bool,
+    use_proto_loss_epoch: bool,
+    use_rel_loss_epoch: bool,
+    lambda_proto_epoch: float,
+    lambda_rel_epoch: float,
+) -> Dict[str, Any]:
+    """生成可直接写入 JSON 的 prototype assignment / geometry 摘要。"""
+    payload: Dict[str, Any] = {
+        "schema_version": 1,
+        "epoch": int(epoch_one_based),
+        "ablation_mode": str(args.ablation_mode),
+        "proto_state_requested": bool(use_proto_state_epoch),
+        "proto_loss_active": bool(use_proto_loss_epoch),
+        "rel_loss_active": bool(use_rel_loss_epoch),
+        "lambda_proto": float(lambda_proto_epoch),
+        "lambda_rel": float(lambda_rel_epoch),
+        "prototype_state_available": proto_state is not None,
+        "near_dead_definition": "count <= max(2, ceil(0.05 * class_sample_count))",
+    }
+    if proto_state is None:
+        return payload
+
+    proto_cpu = _cpu_proto_state(proto_state)
+    bank = proto_cpu.get("prototype_bank")
+    class_counts = proto_cpu.get("class_num_prototypes")
+    sample_to_proto = proto_cpu.get("sample_to_proto")
+    sample_to_class = proto_cpu.get("sample_to_class")
+    valid_mask = proto_cpu.get("valid_sample_mask")
+    if (
+        bank is None
+        or class_counts is None
+        or sample_to_proto is None
+        or sample_to_class is None
+    ):
+        payload["prototype_state_complete"] = False
+        return payload
+
+    bank = bank.float()
+    class_counts = class_counts.long()
+    sample_to_proto = sample_to_proto.long()
+    sample_to_class = sample_to_class.long()
+    if valid_mask is None:
+        valid_mask = sample_to_proto >= 0
+    else:
+        valid_mask = valid_mask.bool() & (sample_to_proto >= 0)
+
+    id_to_name = {int(class_id): str(name) for name, class_id in label_name_to_id.items()}
+    class_rows: List[Dict[str, Any]] = []
+    assignment_cvs: List[float] = []
+    assignment_entropies: List[float] = []
+    same_class_cosines: List[float] = []
+    active_vectors: List[torch.Tensor] = []
+    active_classes: List[int] = []
+    strict_dead_total = 0
+    near_dead_total = 0
+
+    for class_id in range(int(class_counts.numel())):
+        k = int(class_counts[class_id].item())
+        if k <= 0:
+            continue
+        class_mask = valid_mask & (sample_to_class == class_id)
+        assignments = sample_to_proto[class_mask]
+        counts = torch.bincount(assignments.clamp_min(0), minlength=k)[:k].float()
+        num_samples = int(class_mask.sum().item())
+        strict_dead = int((counts == 0).sum().item())
+        near_threshold = max(2, int(math.ceil(0.05 * num_samples)))
+        near_dead = int((counts <= near_threshold).sum().item())
+        strict_dead_total += strict_dead
+        near_dead_total += near_dead
+
+        mean_count = float(counts.mean().item())
+        assignment_cv = (
+            float(counts.std(unbiased=False).item()) / mean_count if mean_count > 0 else 0.0
+        )
+        probabilities = counts / counts.sum().clamp_min(1.0)
+        entropy_nats = float(
+            (-(probabilities * probabilities.clamp_min(1e-12).log()).sum()).item()
+        )
+        entropy_norm = entropy_nats / math.log(k) if k > 1 else 1.0
+        assignment_cvs.append(assignment_cv)
+        assignment_entropies.append(entropy_norm)
+
+        vectors = torch.nn.functional.normalize(bank[class_id, :k], dim=1)
+        active_vectors.append(vectors)
+        active_classes.extend([class_id] * k)
+        if k > 1:
+            within = vectors @ vectors.t()
+            off_diagonal = within[~torch.eye(k, dtype=torch.bool)]
+            same_cos_mean = float(off_diagonal.mean().item())
+            same_cos_min = float(off_diagonal.min().item())
+            same_cos_max = float(off_diagonal.max().item())
+            same_class_cosines.append(same_cos_mean)
+        else:
+            same_cos_mean = None
+            same_cos_min = None
+            same_cos_max = None
+
+        class_rows.append(
+            {
+                "class_id": class_id,
+                "class_name": id_to_name.get(class_id, str(class_id)),
+                "num_samples": num_samples,
+                "num_prototypes": k,
+                "assignment_counts": [int(value) for value in counts.tolist()],
+                "strict_dead_prototypes": strict_dead,
+                "near_dead_prototypes": near_dead,
+                "near_dead_threshold": near_threshold,
+                "assignment_cv": assignment_cv,
+                "assignment_entropy_normalized": entropy_norm,
+                "same_class_cos_mean": same_cos_mean,
+                "same_class_cos_min": same_cos_min,
+                "same_class_cos_max": same_cos_max,
+            }
+        )
+
+    payload.update(
+        {
+            "prototype_state_complete": True,
+            "valid_samples": int(valid_mask.sum().item()),
+            "invalid_samples": int(valid_mask.numel() - valid_mask.sum().item()),
+            "active_prototypes": int(class_counts.sum().item()),
+            "strict_dead_prototypes": strict_dead_total,
+            "near_dead_prototypes": near_dead_total,
+            "assignment_cv_mean": (
+                float(statistics.mean(assignment_cvs)) if assignment_cvs else None
+            ),
+            "assignment_entropy_normalized_mean": (
+                float(statistics.mean(assignment_entropies))
+                if assignment_entropies
+                else None
+            ),
+            "same_class_cos_mean": (
+                float(statistics.mean(same_class_cosines))
+                if same_class_cosines
+                else None
+            ),
+            "prototype_norm_mean": float(
+                torch.cat(active_vectors, dim=0).norm(dim=1).mean().item()
+            )
+            if active_vectors
+            else None,
+            "class_rows": class_rows,
+        }
+    )
+
+    if active_vectors:
+        all_vectors = torch.cat(active_vectors, dim=0)
+        class_tensor = torch.tensor(active_classes, dtype=torch.long)
+        cosine = all_vectors @ all_vectors.t()
+        diff_mask = class_tensor[:, None] != class_tensor[None, :]
+        nearest_diff = cosine.masked_fill(~diff_mask, -float("inf")).max(dim=1).values
+        payload["nearest_different_class_cos_mean"] = float(nearest_diff.mean().item())
+        payload["nearest_different_class_cos_max"] = float(nearest_diff.max().item())
+
+    return payload
+
+
+def save_prototype_diagnostics(
+    *,
+    epoch_one_based: int,
+    args,
+    proto_state: Optional[dict],
+    label_name_to_id: Dict[str, int],
+    use_proto_state_epoch: bool,
+    use_proto_loss_epoch: bool,
+    use_rel_loss_epoch: bool,
+    lambda_proto_epoch: float,
+    lambda_rel_epoch: float,
+) -> None:
+    """保存轻量 JSON 摘要；prototype 可用时同时保存可复算的原始状态。"""
+    diagnostic_dir = Path(args.weight_save_path) / "prototype_diagnostics"
+    diagnostic_dir.mkdir(parents=True, exist_ok=True)
+    payload = _prototype_diagnostic_payload(
+        epoch_one_based=epoch_one_based,
+        args=args,
+        proto_state=proto_state,
+        label_name_to_id=label_name_to_id,
+        use_proto_state_epoch=use_proto_state_epoch,
+        use_proto_loss_epoch=use_proto_loss_epoch,
+        use_rel_loss_epoch=use_rel_loss_epoch,
+        lambda_proto_epoch=lambda_proto_epoch,
+        lambda_rel_epoch=lambda_rel_epoch,
+    )
+    json_path = diagnostic_dir / f"proto_diag_epoch_{epoch_one_based:04d}.json"
+    json_tmp = json_path.with_suffix(json_path.suffix + ".tmp")
+    json_tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(json_tmp, json_path)
+
+    if proto_state is not None:
+        state_path = diagnostic_dir / f"proto_state_epoch_{epoch_one_based:04d}.pt"
+        state_tmp = state_path.with_suffix(state_path.suffix + ".tmp")
+        torch.save(
+            {
+                "schema_version": 1,
+                "epoch": int(epoch_one_based),
+                "ablation_mode": str(args.ablation_mode),
+                **_cpu_proto_state(proto_state),
+            },
+            state_tmp,
+        )
+        os.replace(state_tmp, state_path)
+
+
+def checkpoint_save_reasons(
+    *,
+    epoch_one_based: int,
+    args,
+    base_use_rel_loss: bool,
+) -> List[str]:
+    """返回当前epoch需要保存完整checkpoint的全部原因，避免重复写同一文件。"""
+    reasons: List[str] = []
+    if args.save_interval > 0 and (epoch_one_based % args.save_interval == 0):
+        reasons.append("periodic")
+    if epoch_one_based == args.epochs:
+        reasons.append("final")
+
+    relation_boundary_enabled = (
+        base_use_rel_loss
+        and args.enable_loss_stage_schedule
+        and args.rel_checkpoint_after_epochs > 0
+        and 0 < int(args.rel_loss_start_epoch) < int(args.epochs)
+    )
+    if relation_boundary_enabled:
+        rel_before_epoch = int(args.rel_loss_start_epoch)
+        rel_after_epoch = min(
+            int(args.epochs),
+            rel_before_epoch + int(args.rel_checkpoint_after_epochs),
+        )
+        if epoch_one_based == rel_before_epoch:
+            reasons.append("rel_before")
+        if epoch_one_based == rel_after_epoch:
+            reasons.append(f"rel_after_{int(args.rel_checkpoint_after_epochs)}")
+    return reasons
+
+
 # ============================================================
 # 单个 epoch 的训练
 # ============================================================
@@ -2317,7 +2618,11 @@ def worker(args) -> None:
         label_map = load_label_map_json(_resolve_label_map_path(args))
         if args.tier_mode not in label_map:
             raise KeyError(f"tier_mode={args.tier_mode} not found in label_map.json")
-        num_classes = len(label_map[args.tier_mode])
+        label_name_to_id = {
+            str(name): int(class_id)
+            for name, class_id in label_map[args.tier_mode].items()
+        }
+        num_classes = len(label_name_to_id)
         if num_classes <= 0:
             raise ValueError(f"No classes found for tier={args.tier_mode}")
 
@@ -2478,31 +2783,54 @@ def worker(args) -> None:
                 sup_criterion=sup_criterion,
             )
 
-            if is_main_process(rank) and ((epoch + 1) % args.save_interval == 0):
-                pt_path = os.path.join(args.weight_save_path, f"checkpoint_{epoch + 1:04d}.pth")
-                state = {
-                    "epoch": epoch + 1,
-                    "state_dict": (_unwrap_model(model).state_dict()),
-                    "optimizer": optimizer.state_dict(),
-                    "contrastive_loss_mode": args.contrastive_loss,
-                    "ablation_mode": args.ablation_mode,
-                    "prototype_bank": (proto_state["prototype_bank"].cpu() if proto_state is not None else None),
-                    "class_num_prototypes": (
-                        proto_state["class_num_prototypes"].cpu() if proto_state is not None else None
-                    ),
-                    "proto_rel_temperature_bank": (
-                        proto_state["proto_rel_temperature_bank"].cpu() if proto_state is not None else None
-                    ),
-                    "sample_to_proto": (proto_state["sample_to_proto"].cpu() if proto_state is not None else None),
-                    "sample_to_class": (proto_state["sample_to_class"].cpu() if proto_state is not None else None),
-                    "valid_sample_mask": (
-                        proto_state["valid_sample_mask"].cpu() if proto_state is not None else None
-                    ),
-                    "enable_prototype_temperature_scaling": (
-                        proto_state.get("enable_prototype_temperature_scaling", False) if proto_state is not None else False
-                    ),
-                }
-                save_checkpoint(state, pt_path)
+            epoch_one_based = epoch + 1
+
+            if (
+                is_main_process(rank)
+                and args.prototype_diagnostic_interval > 0
+                and (epoch_one_based % args.prototype_diagnostic_interval == 0)
+            ):
+                save_prototype_diagnostics(
+                    epoch_one_based=epoch_one_based,
+                    args=args,
+                    proto_state=proto_state,
+                    label_name_to_id=label_name_to_id,
+                    use_proto_state_epoch=use_proto_state_epoch,
+                    use_proto_loss_epoch=use_proto_loss_epoch,
+                    use_rel_loss_epoch=use_rel_loss_epoch,
+                    lambda_proto_epoch=lambda_proto_epoch,
+                    lambda_rel_epoch=lambda_rel_epoch,
+                )
+                log(
+                    f"[Prototype Diagnostic] saved epoch={epoch_one_based} "
+                    f"state_available={proto_state is not None}"
+                )
+
+            if is_main_process(rank):
+                save_reasons = checkpoint_save_reasons(
+                    epoch_one_based=epoch_one_based,
+                    args=args,
+                    base_use_rel_loss=use_rel_loss,
+                )
+
+                if save_reasons:
+                    pt_path = os.path.join(
+                        args.weight_save_path,
+                        f"checkpoint_{epoch_one_based:04d}.pth",
+                    )
+                    state = _build_full_checkpoint_state(
+                        epoch_one_based=epoch_one_based,
+                        model=model,
+                        optimizer=optimizer,
+                        args=args,
+                        proto_state=proto_state,
+                        save_reasons=save_reasons,
+                    )
+                    save_checkpoint(state, pt_path)
+                    log(
+                        f"[Checkpoint] saved {pt_path} "
+                        f"reasons={','.join(save_reasons)}"
+                    )
 
     finally:
         _cleanup_ddp()

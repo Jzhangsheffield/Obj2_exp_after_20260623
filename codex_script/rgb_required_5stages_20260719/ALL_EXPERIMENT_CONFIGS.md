@@ -20,7 +20,16 @@
 
 ## 2. 对比预训练固定参数
 
-200 epochs，batch 64，AdamW，LR `1e-3`，weight decay `1e-4`，milestones `50/100/150`，projection 128，queue 1088，temperature 0.07，SupLoss，queue positives 6，prototype refresh 每 10 epochs，prototype temperature 0.07，真实 prototype EMA 0.99。每 10 epochs 保存 checkpoint，并自动从最新 checkpoint 续训。
+200 epochs，batch 64，AdamW，LR `1e-3`，weight decay `1e-4`，milestones `50/100/150`，projection 128，queue 1088，temperature 0.07，SupLoss，queue positives 6，prototype refresh 每 10 epochs，prototype temperature 0.07，真实 prototype EMA 0.99。
+
+完整 checkpoint 默认每 50 epochs 保存，即 `50/100/150/200`，并自动从最新完整 checkpoint 续训。每 10 epochs 另存轻量 prototype 诊断：JSON 保存 assignment、dead/near-dead、entropy、prototype cosine 等摘要；prototype state 可用时同时保存只含 bank 和 assignment map 的 `.pt` 文件。
+
+RelLoss 实验还会按各自的 `rel_start` 额外保存：
+
+- `checkpoint_{rel_start}`：RelLoss 第一次参与更新之前；
+- `checkpoint_{rel_start+10}`：RelLoss 已参与 10 个 epoch 更新之后。
+
+例如 `rel_start=125` 时保存 `checkpoint_0125.pth` 和 `checkpoint_0135.pth`。与 50-epoch 周期节点重合时只写一次。
 
 动作保持增强 A2：两个 view 使用完全相同的帧索引；RRC scale `[0.85,1.0]`，ratio `[0.9,1.1]`；水平翻转 0.5，垂直翻转 0；color jitter 概率 0.2、强度 `[0.1,0.1,0.1,0.02]`；灰度 0；Gaussian blur 概率 0.1、kernel 5、sigma `[0.1,1.0]`。
 

@@ -527,6 +527,7 @@ def build_pretrain_rows(project, skip_checkpoints):
         debug_path = root / "debug_train_log.jsonl"
         args_path = root / "args.json"
         checkpoint_path = root / "checkpoint_0200.pth"
+        diagnostic_path = root / "prototype_diagnostics" / "proto_diag_epoch_0200.json"
         row = {
             "family": spec["family"], "seed": spec["seed"],
             "experiment_id": str(spec["experiment_id"]).removesuffix("_ft"),
@@ -534,10 +535,31 @@ def build_pretrain_rows(project, skip_checkpoints):
             "pretrain_status": "complete" if debug_path.is_file() else "missing",
             "debug_path": str(debug_path) if debug_path.is_file() else "",
             "checkpoint_path": str(checkpoint_path) if checkpoint_path.is_file() else "",
+            "prototype_diagnostic_path": (
+                str(diagnostic_path) if diagnostic_path.is_file() else ""
+            ),
         }
         if debug_path.is_file():
             row.update(parse_debug_log(debug_path, args_path))
-        if checkpoint_path.is_file() and not skip_checkpoints:
+        if diagnostic_path.is_file():
+            diagnostic = json.loads(diagnostic_path.read_text(encoding="utf-8"))
+            row.update({
+                "checkpoint_status": "lightweight_diagnostic",
+                "valid_samples": diagnostic.get("valid_samples"),
+                "invalid_samples": diagnostic.get("invalid_samples"),
+                "active_prototypes": diagnostic.get("active_prototypes"),
+                "dead_prototypes": diagnostic.get("strict_dead_prototypes"),
+                "near_dead_prototypes": diagnostic.get("near_dead_prototypes"),
+                "assignment_cv_mean": diagnostic.get("assignment_cv_mean"),
+                "assignment_entropy_norm_mean": diagnostic.get(
+                    "assignment_entropy_normalized_mean"
+                ),
+                "same_class_cos_mean": diagnostic.get("same_class_cos_mean"),
+                "nearest_diff_cos_mean": diagnostic.get(
+                    "nearest_different_class_cos_mean"
+                ),
+            })
+        elif checkpoint_path.is_file() and not skip_checkpoints:
             row.update(checkpoint_geometry(checkpoint_path))
         elif skip_checkpoints:
             row["checkpoint_status"] = "skipped"
@@ -719,6 +741,7 @@ def main() -> None:
         "invalid_samples", "active_prototypes", "dead_prototypes", "near_dead_prototypes",
         "assignment_cv_mean", "assignment_entropy_norm_mean", "same_class_cos_mean",
         "nearest_diff_cos_mean", "debug_path", "checkpoint_path",
+        "prototype_diagnostic_path",
     ]
     write_csv(
         output / "confirmation_pretrain_diagnostics.csv",

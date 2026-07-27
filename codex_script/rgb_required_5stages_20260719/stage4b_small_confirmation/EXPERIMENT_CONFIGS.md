@@ -24,6 +24,9 @@
 | SupCon temperature | 0.07 |
 | recluster interval | 10 |
 | prototype temperature / EMA | 0.07 / 0.99 |
+| 完整 checkpoint interval | 50；固定保存50/100/150/200 |
+| prototype轻量诊断 interval | 10 |
+| RelLoss关键权重 | `rel_start`和`rel_start+10` |
 
 ## 预训练增强
 
@@ -84,3 +87,36 @@ Null-P2 / Null-P3 必须使用 `contrastive_proto`，不能使用 `contrastive_o
 | `confirmation_per_class_pair_summary.csv` | 各 comparison 的逐类 recall 配对变化 |
 | `confirmation_pretrain_diagnostics.csv` | 预训练 loss、非零率、non-finite、assignment、dead/near-dead 和 prototype cosine |
 | `confirmation_summary.md` | 面向决策的完整汇总与进入 Stage 5 的判据 |
+
+## 保存文件策略
+
+每个预训练目录中的完整权重默认只有：
+
+```text
+checkpoint_0050.pth
+checkpoint_0100.pth
+checkpoint_0150.pth
+checkpoint_0200.pth
+```
+
+RelLoss实验额外保留启动边界。以R9/R12/Null-rel的 `rel_start=125` 为例：
+
+```text
+checkpoint_0125.pth    # 启动前
+checkpoint_0135.pth    # RelLoss已启用10轮
+```
+
+R7的 `rel_start=50` 会额外保存 `checkpoint_0060.pth`；`checkpoint_0050.pth` 与固定50轮节点重合，不会重复。
+
+每10轮轻量诊断位于：
+
+```text
+prototype_diagnostics/
+├── proto_diag_epoch_0010.json
+├── ...
+├── proto_diag_epoch_0200.json
+├── proto_state_epoch_0060.pt
+└── ...
+```
+
+SupLoss-only或prototype尚未启动时，JSON会记录 `prototype_state_available=false`，不会生成空的prototype state文件。

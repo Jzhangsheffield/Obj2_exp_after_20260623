@@ -19,6 +19,15 @@
 - Null-rel 此前没有 seed 1，因此本阶段为它运行 seed 1、2、3。
 - Null-P2 和 Null-P3 此前没有结果，因此本阶段均运行 seed 1、2、3。
 
+## 权重与prototype诊断保存策略
+
+- 完整checkpoint每50轮保存：`50/100/150/200`。
+- 每10轮保存 `prototype_diagnostics/proto_diag_epoch_XXXX.json`。
+- prototype state可用时，同时保存轻量 `proto_state_epoch_XXXX.pt`，只包含bank、assignment map和有效掩码，不包含模型及优化器。
+- RelLoss实验额外保存 `checkpoint_{rel_start}.pth` 和 `checkpoint_{rel_start+10}.pth`。
+- `rel_start=125` 表示RelLoss从人类计数的第126轮开始参与更新，因此`checkpoint_0125.pth`是启动前状态，`checkpoint_0135.pth`是启用10轮后的状态。
+- 保存节点重合时只写一个checkpoint，并在checkpoint的`save_reasons`字段记录所有触发原因。
+
 ## 最重要的 Null-rel 定义
 
 Null-rel 使用：
@@ -78,7 +87,12 @@ results/
 │   ├── proto_null_p3_s2/
 │   ├── proto_null_p3_s3/
 │   ├── ...
-│   └── rel_r7_s3/                 # 只有运行可选扩展后才存在
+│   ├── rel_r7_s3/                 # 只有运行可选扩展后才存在
+│   └── <experiment>/
+│       ├── checkpoint_*.pth
+│       └── prototype_diagnostics/
+│           ├── proto_diag_epoch_*.json
+│           └── proto_state_epoch_*.pt
 └── ft_rgb_req_s4b_confirm_20260724/
     ├── weights/
     ├── datamaps/
@@ -169,6 +183,8 @@ results/ft_rgb_req_s4b_confirm_20260724/analysis/confirmation_summary.md
 - 预训练 SupLoss、ProtoLoss、RelLoss、非零比例、非有限值；
 - 最终 prototype assignment、dead/near-dead、assignment entropy 和 prototype cosine；
 - 同配置 `rel_r0` 与 `proto_p0` 的重复性审计。
+
+对新训练结果，汇总程序优先读取轻量 `proto_diag_epoch_0200.json`；对旧结果没有轻量诊断时，才回退读取约500 MB的完整checkpoint。
 
 需要手动重新汇总时：
 

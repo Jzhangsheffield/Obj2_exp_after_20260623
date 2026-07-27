@@ -110,6 +110,8 @@ sbatch --dependency=afterok:123789 stage7_finetune/slurm/04_summarize.slurm
 
 每次训练会在输出目录写 `codex_run_provenance.json`，记录配置、完整命令、Git commit、训练入口 SHA256、Slurm 作业号和 GPU 可见性。预训练还写 `required_wrapper_args.json` 和 `debug_train_log.jsonl`。
 
+预训练完整checkpoint每50轮保存。每10轮另存轻量prototype诊断；RelLoss实验额外保留启动前和启用10轮后的完整权重。详细规则见 `ALL_EXPERIMENT_CONFIGS.md` 和 Stage 4B README。
+
 ## 重要约束
 
 - 不要在 Stage 0/T3/1/4/5 用测试集筛选超参数；这些阶段的 test 脚本仅为完整性保留。

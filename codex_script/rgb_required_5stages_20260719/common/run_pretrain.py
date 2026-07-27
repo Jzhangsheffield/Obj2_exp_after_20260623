@@ -103,6 +103,8 @@ def main() -> None:
         "--seed": exp.get("seed", 1),
         "--print_freq": common["print_freq"],
         "--save_interval": common["save_interval"],
+        "--prototype_diagnostic_interval": common.get("prototype_diagnostic_interval", 10),
+        "--rel_checkpoint_after_epochs": common.get("rel_checkpoint_after_epochs", 10),
         "--sampler_type": exp.get("sampler_type", "none"),
     }
     for flag, value in values.items():
