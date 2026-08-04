@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "created": "2026-08-04",
+  "project_root": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623",
+  "dataset_root": "/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset",
+  "task": {
+    "train_manifest_rel": "N_as_test/train_manifest_except_take_put.jsonl",
+    "val_manifest_rel": "N_as_test/val_manifest_except_take_put.jsonl",
+    "test_manifest_rel": "N_as_test/test_manifest_except_take_put.jsonl",
+    "label_map_rel": "label_map_except_take_put.json",
+    "tier_mode": "tier1", "num_classes": 15, "n_frames": 16, "rgb_camera_id": "00143",
+    "rgb_mean": [0.3752, 0.3864, 0.3960], "rgb_std": [0.2934, 0.2724, 0.2644]
+  },
+  "pretrain_augmentation": {
+    "temporal_mode": "shared", "min_temporal_overlap": 1.0, "out_hw": [224, 224],
+    "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0,
+    "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0,
+    "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]
+  },
+  "finetune_augmentation": {"rgb_size": 224, "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.0, "gray_p": 0.0, "blur_p": 0.0},
+  "pretrain_common": {
+    "epochs": 200, "batch_size": 64, "num_workers": 8, "model_depth": 18, "proj_dim": 128,
+    "K_queue": 1088, "temperature": 0.07, "contrastive_loss": "suploss", "num_positive": 6,
+    "learning_rate": 0.001, "weight_decay": 0.0001, "optimizer": "adamw", "schedule": [50, 100, 150],
+    "save_interval": 50, "prototype_diagnostic_interval": 10, "rel_checkpoint_after_epochs": 10,
+    "print_freq": 10
+  },
+  "finetune_common": {"epochs": 100, "batch_size": 64, "num_workers_train": 8, "num_workers_val": 6, "prefetch_factor": 2, "model_depth": 18, "optimizer": "adamw", "head_lr": 0.001, "weight_decay": 0.0001, "schedule": [50, 75], "save_period": 25, "best_after_epoch": 0},
+  "test_common": {"batch_size": 64, "num_workers": 8, "prefetch_factor": 2},
+  "test_lock": {"environment_variable": "ALLOW_LOCKED_TEST", "required_value": "YES"},
+  "v2_defaults": {
+    "assignment_mode": "teacher_balanced", "assignment_temperature": 0.05,
+    "prediction_temperature": 0.07, "sinkhorn_iterations": 3,
+    "balance_weight": 0.2, "diversity_weight": 0.1, "diversity_margin": 0.85,
+    "preview_momentum": 0.5, "bank_momentum": 0.99,
+    "rel_mode": "rank_direction", "rel_topk": 3, "rel_margin": 0.05,
+    "rel_temperature": 0.05, "direction_weight": 0.25, "direction_delta": 0.005,
+    "diagnostic_interval": 50
+  },
+  "stages": {
+    "stage0": {
+      "id": "stage0", "pretrain_output_rel": "results/cl_rgb_v2_s0_integrity_20260804", "finetune_output_rel": "results/ft_rgb_v2_s0_integrity_20260804",
+      "pretrain_experiments": [
+        {"index": 0, "id": "i0_sup_s1", "seed": 1, "epochs": 60, "run_finetune": false, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "i1_null_proto_s1", "seed": 1, "epochs": 60, "run_finetune": false, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 10, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 2, "id": "i2_null_rel_s1", "seed": 1, "epochs": 60, "run_finetune": false, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 10, "rel_start": 20, "rel_end": 40, "lambda_proto": 0.0, "lambda_rel": 0.0}
+      ], "finetune_experiments": []
+    },
+    "stage1": {
+      "id": "stage1", "pretrain_output_rel": "results/cl_rgb_v2_s1_proto_screen_20260804", "finetune_output_rel": "results/ft_rgb_v2_s1_proto_screen_20260804", "auto_finetune": true,
+      "pretrain_experiments": [
+        {"index": 0, "id": "p0_sup_s1", "seed": 1, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "p1_teacher_soft_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0, "v2": {"assignment_mode": "teacher_soft", "balance_weight": 0.0, "diversity_weight": 0.0}},
+        {"index": 2, "id": "p2_teacher_bal_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0, "v2": {"assignment_mode": "teacher_balanced", "balance_weight": 0.0, "diversity_weight": 0.0}},
+        {"index": 3, "id": "p3_bal_div_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0, "v2": {"assignment_mode": "teacher_balanced", "balance_weight": 0.0, "diversity_weight": 0.1}},
+        {"index": 4, "id": "p4_proto_v2_full_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0}
+      ], "finetune_experiments": []
+    },
+    "stage2": {
+      "id": "stage2", "pretrain_output_rel": "results/cl_rgb_v2_s2_proto_confirm_20260804", "finetune_output_rel": "results/ft_rgb_v2_s2_proto_confirm_20260804", "auto_finetune": true,
+      "pretrain_experiments": [
+        {"index": 0, "id": "p0_sup_s1", "seed": 1, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "p0_sup_s2", "seed": 2, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 2, "id": "p0_sup_s3", "seed": 3, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 3, "id": "pn_null_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 4, "id": "pn_null_s2", "seed": 2, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 5, "id": "pn_null_s3", "seed": 3, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 6, "id": "pv2_full_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0},
+        {"index": 7, "id": "pv2_full_s2", "seed": 2, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0},
+        {"index": 8, "id": "pv2_full_s3", "seed": 3, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0}
+      ], "finetune_experiments": []
+    },
+    "stage3": {
+      "id": "stage3", "pretrain_output_rel": "results/cl_rgb_v2_s3_rel_confirm_20260804", "finetune_output_rel": "results/ft_rgb_v2_s3_rel_confirm_20260804", "auto_finetune": true,
+      "pretrain_experiments": [
+        {"index": 0, "id": "r0_sup_s1", "seed": 1, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "r0_sup_s2", "seed": 2, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 2, "id": "r0_sup_s3", "seed": 3, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 3, "id": "rn_null_s1", "seed": 1, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 4, "id": "rn_null_s2", "seed": 2, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 5, "id": "rn_null_s3", "seed": 3, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 6, "id": "rrank_s1", "seed": 1, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5, "v2": {"rel_mode": "rank", "direction_weight": 0.0}},
+        {"index": 7, "id": "rrank_s2", "seed": 2, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5, "v2": {"rel_mode": "rank", "direction_weight": 0.0}},
+        {"index": 8, "id": "rrank_s3", "seed": 3, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5, "v2": {"rel_mode": "rank", "direction_weight": 0.0}},
+        {"index": 9, "id": "rv2_s1", "seed": 1, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5},
+        {"index": 10, "id": "rv2_s2", "seed": 2, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5},
+        {"index": 11, "id": "rv2_s3", "seed": 3, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5}
+      ], "finetune_experiments": []
+    },
+    "stage4": {
+      "id": "stage4", "pretrain_output_rel": "results/cl_rgb_v2_s4_factorial_20260804", "finetune_output_rel": "results/ft_rgb_v2_s4_factorial_20260804", "auto_finetune": true,
+      "pretrain_experiments": [
+        {"index": 0, "id": "f0_sup_s1", "seed": 1, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 1, "id": "f0_sup_s2", "seed": 2, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 2, "id": "f0_sup_s3", "seed": 3, "ablation_mode": "contrastive_only", "lambda_proto": 0.0, "lambda_rel": 0.0},
+        {"index": 3, "id": "f1_proto_s1", "seed": 1, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0},
+        {"index": 4, "id": "f1_proto_s2", "seed": 2, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0},
+        {"index": 5, "id": "f1_proto_s3", "seed": 3, "ablation_mode": "contrastive_proto", "num_prototypes": 2, "proto_start": 50, "lambda_proto": 0.1, "lambda_rel": 0.0},
+        {"index": 6, "id": "f2_rel_s1", "seed": 1, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5},
+        {"index": 7, "id": "f2_rel_s2", "seed": 2, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5},
+        {"index": 8, "id": "f2_rel_s3", "seed": 3, "ablation_mode": "contrastive_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.0, "lambda_rel": 0.5},
+        {"index": 9, "id": "f3_both_s1", "seed": 1, "ablation_mode": "contrastive_proto_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.1, "lambda_rel": 0.5},
+        {"index": 10, "id": "f3_both_s2", "seed": 2, "ablation_mode": "contrastive_proto_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.1, "lambda_rel": 0.5},
+        {"index": 11, "id": "f3_both_s3", "seed": 3, "ablation_mode": "contrastive_proto_rel", "num_prototypes": 2, "proto_start": 50, "rel_start": 75, "rel_end": 100, "lambda_proto": 0.1, "lambda_rel": 0.5}
+      ], "finetune_experiments": []
+    }
+  }
+}
