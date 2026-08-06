@@ -1,0 +1,7 @@
+{
+  "selection_ready": false,
+  "instruction": "After Stage 1-4 validation diagnostics, replace the fields below with the selected candidate and set selection_ready=true.",
+  "selected_pretrain_rel": "results/rgb_supcon_repair_20260806/pretrain/stage4/s4_x3_both/checkpoint_0200.pth",
+  "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original",
+  "n_frames": 16, "temporal_mode": "current", "seeds": [1, 2, 3]
+}

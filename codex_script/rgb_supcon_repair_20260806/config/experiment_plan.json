@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "package": "rgb_supcon_repair_20260806",
+  "roots": {
+    "windows_project": "D:/Junxi_data/Obj2_experiments_after_260623",
+    "windows_dataset": "C:/Junxi_data_for_training_speedup/Final_Mapstyle_Dataset",
+    "hpc_project": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623",
+    "hpc_dataset": "/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset"
+  },
+  "base_source_package_rel": "codex_script/rgb_mvit_motioncrop_seed1_20260721",
+  "output_rel": "results/rgb_supcon_repair_20260806",
+  "source_manifests": {
+    "train": "N_as_test/train_manifest_except_take_put.jsonl",
+    "val": "N_as_test/val_manifest_except_take_put.jsonl",
+    "locked_test": "N_as_test/test_manifest_except_take_put.jsonl",
+    "label_map": "label_map_except_take_put.json"
+  },
+  "derived_manifests": {
+    "screen_train": "runtime/splits/train_MJ.jsonl",
+    "screen_val": "runtime/splits/val_MR.jsonl",
+    "fold_M_train": "runtime/splits/fold_M_train_JMR.jsonl",
+    "fold_M_val": "runtime/splits/fold_M_val_M.jsonl",
+    "fold_J_train": "runtime/splits/fold_J_train_MMR.jsonl",
+    "fold_J_val": "runtime/splits/fold_J_val_J.jsonl",
+    "fold_MR_train": "runtime/splits/fold_MR_train_MJ.jsonl",
+    "fold_MR_val": "runtime/splits/fold_MR_val_MR.jsonl"
+  },
+  "task": {
+    "tier_mode": "tier1", "num_classes": 15, "image_size": 224,
+    "original_rgb_key": "00143", "motion_crop_rgb_key": "00143_motion_crop_m32",
+    "original_mean": [0.3752, 0.3864, 0.3960], "original_std": [0.2934, 0.2724, 0.2644]
+  },
+  "augmentation": {
+    "temporal_view_mode": "shared", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1],
+    "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.2,
+    "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0,
+    "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]
+  },
+  "pretrain_common": {
+    "epochs": 200, "batch_size": 64, "num_workers": 8, "proj_dim": 128,
+    "queue_size": 1088, "temperature": 0.07, "num_positive": 6,
+    "learning_rate": 0.001, "weight_decay": 0.0001, "optimizer": "adamw",
+    "step_schedule": [50, 100, 150], "save_interval": 50, "print_freq": 10
+  },
+  "finetune_common": {
+    "epochs_full": 100, "epochs_head": 25, "batch_size": 64,
+    "num_workers_train": 8, "num_workers_val": 6, "num_workers_test": 8,
+    "head_lr": 0.001, "backbone_lr": 0.0003, "weight_decay": 0.0001,
+    "schedule": [50, 75], "save_period": 25
+  },
+  "imu_teacher": {
+    "checkpoint_rel": "results/cl_mindrove_N_except_take_put_adamw_44/signal_imu/suploss_only/checkpoint_0200.pth",
+    "args_rel": "results/cl_mindrove_N_except_take_put_adamw_44/signal_imu/suploss_only/args.json",
+    "cache_rel": "runtime/imu_teacher/train_MJ_features.pth", "feature_dim": 512,
+    "relation_temperature": 0.1
+  },
+  "test_lock": {"environment_variable": "ALLOW_LOCKED_TEST", "required_value": "YES"},
+  "stages": {
+    "stage1": [
+      {"index": 0, "id": "s1_o0_r18_step", "seed": 1, "backbone": "resnet3d18", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "step", "lr_warmup_epochs": 0, "aux_ce_weight": 0.0},
+      {"index": 1, "id": "s1_o1_r10_step", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "step", "lr_warmup_epochs": 0, "aux_ce_weight": 0.0},
+      {"index": 2, "id": "s1_o2_r18_cos", "seed": 1, "backbone": "resnet3d18", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.0},
+      {"index": 3, "id": "s1_o3_r10_cos", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.0},
+      {"index": 4, "id": "s1_o4_r10_cos_ce02", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2}
+    ],
+    "stage2": [
+      {"index": 0, "id": "s2_m0_rgb", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 1, "id": "s2_m1_crop", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "motion_crop", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 2, "id": "s2_m2_absdiff", "seed": 1, "backbone": "resnet3d10", "representation": "absdiff", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 3, "id": "s2_m3_dual", "seed": 1, "backbone": "dual_resnet3d10", "representation": "rgb_absdiff", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 4, "id": "s2_m4_crop_dual", "seed": 1, "backbone": "dual_resnet3d10", "representation": "rgb_absdiff", "rgb_source": "motion_crop", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2}
+    ],
+    "stage3": [
+      {"index": 0, "id": "s3_t0_r10_f16", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 1, "id": "s3_t1_r10_f32", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 32, "batch_size": 32, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 2, "id": "s3_t2_attn_f16", "seed": 1, "backbone": "temporal_attn_resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "t3_lfb", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2},
+      {"index": 3, "id": "s3_t3_attn_f32", "seed": 1, "backbone": "temporal_attn_resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 32, "batch_size": 32, "temporal_mode": "t3_lfb", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2}
+    ],
+    "stage4": [
+      {"index": 0, "id": "s4_x0_rgb_control", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2, "xmodal_weight": 0.0, "xrel_weight": 0.0},
+      {"index": 1, "id": "s4_x1_instance", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2, "xmodal_weight": 0.1, "xrel_weight": 0.0},
+      {"index": 2, "id": "s4_x2_relation", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2, "xmodal_weight": 0.0, "xrel_weight": 0.5},
+      {"index": 3, "id": "s4_x3_both", "seed": 1, "backbone": "resnet3d10", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "lr_schedule": "cosine", "lr_warmup_epochs": 10, "aux_ce_weight": 0.2, "xmodal_weight": 0.1, "xrel_weight": 0.5}
+    ]
+  }
+}
