@@ -1,14 +1,14 @@
 {
-  "stage6a_ready": false,
+  "stage6a_ready": true,
   "stage6a_instruction": "After Stage 6A, put the two strongest Stage 6A ids in stage6b_candidates and set stage6a_ready=true.",
   "stage6b_candidates": [
-    "s6a_a2_r2plus1d18_k400",
-    "s6a_a3_mvitv2s_k400"
+      "s6a_a3_mvitv2s_k400",
+      "s6a_a4_swin3dt_k400"
   ],
-  "stage6b_ready": false,
+  "stage6b_ready": true,
   "stage6b_instruction": "After the 6B seed-1 screen, set the winning Stage 6A id and policy, then set stage6b_ready=true before 6B confirmation or 6C.",
   "stage6b_winner": "s6a_a3_mvitv2s_k400",
-  "stage6b_policy": "partial",
+  "stage6b_policy": "full",
   "stage6c_ready": false,
   "stage6c_instruction": "After the 6C seed-1 screen, choose direct_k400, random_supcon, k400_supcon, or k400_supcon_patch_frozen and set stage6c_ready=true before multi-seed confirmation.",
   "stage6c_winner": "k400_supcon"

@@ -26,6 +26,8 @@ def main():
             errors.append("classifier Stage 6 finetune-policy anchor mismatch")
         if classifier_source.count("    else:\n        model.train()\n\n    total_seen = 0\n") != 1:
             errors.append("classifier Stage 6 train-mode anchor mismatch")
+        if not (args.project_root/"aug/mindrove_augmentation_tensor_varlen.py").is_file() and not (base/"src/aug/mindrove_augmentation_tensor_varlen.py").is_file():
+            errors.append("missing MindRove augmentation in both project root and isolated source")
     except Exception as e:
         errors.append(f"source patch validation: {e}")
     for stage,rows in plan["stages"].items():

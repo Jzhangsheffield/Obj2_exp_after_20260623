@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, json, sys
+import argparse, json, sys, types
 from pathlib import Path
 
 def main():
@@ -20,6 +20,21 @@ def main():
     from common.runtime_patch import configure_partial_finetune, install
     install(src_root, custom.repair_representation, custom.repair_temporal_mode,
             custom.repair_backbone_init, custom.repair_freeze_patch_embed)
+    # The copied classifier imports the MindRove loader even for RGB-only runs.
+    # Its isolated src/aug directory does not contain this optional module.
+    # Provide an import-only shim for RGB/depth; fail loudly if it is ever called.
+    modality = remaining[remaining.index("--use_modality") + 1] if "--use_modality" in remaining else "rgb"
+    optional_module = "aug.mindrove_augmentation_tensor_varlen"
+    if modality in {"rgb", "depth"} and optional_module not in sys.modules:
+        try:
+            __import__(optional_module)
+        except ModuleNotFoundError as exc:
+            if exc.name != optional_module: raise
+            shim = types.ModuleType(optional_module)
+            def unavailable_mindrove_augmentation(*_args, **_kwargs):
+                raise RuntimeError("MindRove augmentation shim was called during an RGB/depth-only classifier run")
+            shim.apply_mindrove_augmentation = unavailable_mindrove_augmentation
+            sys.modules[optional_module] = shim
     source = source_path.read_text(encoding="utf-8")
     if custom.repair_finetune_policy != "native":
         anchor = "    configure_finetune_mode(model, args.finetune_mode)\n"
