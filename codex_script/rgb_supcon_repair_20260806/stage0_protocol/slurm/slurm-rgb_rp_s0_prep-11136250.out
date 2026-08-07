@@ -1,0 +1,336 @@
+{
+  "source": {
+    "train": {
+      "samples": 1026,
+      "people": {
+        "M": 366,
+        "MR": 319,
+        "J": 341
+      },
+      "classes": {
+        "adjust": 31,
+        "cap": 41,
+        "close": 21,
+        "cut": 108,
+        "insert": 200,
+        "label": 93,
+        "measure": 62,
+        "move": 71,
+        "open": 54,
+        "position": 31,
+        "press": 31,
+        "pull_out": 91,
+        "remove": 56,
+        "tear": 45,
+        "wrap": 91
+      },
+      "runs": 892
+    },
+    "val": {
+      "samples": 181,
+      "people": {
+        "M": 57,
+        "MR": 66,
+        "J": 58
+      },
+      "classes": {
+        "adjust": 5,
+        "cap": 7,
+        "close": 4,
+        "cut": 19,
+        "insert": 35,
+        "label": 17,
+        "measure": 11,
+        "move": 12,
+        "open": 10,
+        "position": 6,
+        "press": 5,
+        "pull_out": 16,
+        "remove": 10,
+        "tear": 8,
+        "wrap": 16
+      },
+      "runs": 179
+    },
+    "run_overlap_count": 43,
+    "run_overlap_first": [
+      "J/insert_short_wire_into_lug/run_14",
+      "J/insert_short_wire_into_lug/run_20",
+      "J/insert_short_wire_into_lug/run_24",
+      "J/insert_short_wire_into_lug/run_27",
+      "J/insert_short_wire_into_lug/run_3",
+      "J/insert_short_wire_into_lug/run_32",
+      "J/insert_short_wire_into_lug/run_6",
+      "J/move_blue_ruler/run_13",
+      "J/open_wire_cutter/run_15",
+      "J/open_wire_cutter/run_19",
+      "J/open_wire_cutter/run_23",
+      "J/open_wire_cutter/run_3",
+      "M/insert_short_wire_into_lug/run_10",
+      "M/insert_short_wire_into_lug/run_13",
+      "M/insert_short_wire_into_lug/run_19",
+      "M/insert_short_wire_into_lug/run_22",
+      "M/insert_short_wire_into_lug/run_23",
+      "M/insert_short_wire_into_lug/run_24",
+      "M/insert_short_wire_into_lug/run_30",
+      "M/insert_short_wire_into_lug/run_32"
+    ]
+  },
+  "derived": {
+    "train_MJ.jsonl": {
+      "samples": 822,
+      "people": {
+        "M": 423,
+        "J": 399
+      },
+      "classes": {
+        "adjust": 26,
+        "cap": 30,
+        "close": 21,
+        "cut": 84,
+        "insert": 157,
+        "label": 74,
+        "measure": 49,
+        "move": 62,
+        "open": 48,
+        "position": 25,
+        "press": 24,
+        "pull_out": 71,
+        "remove": 44,
+        "tear": 36,
+        "wrap": 71
+      },
+      "runs": 694
+    },
+    "val_MR.jsonl": {
+      "samples": 385,
+      "people": {
+        "MR": 385
+      },
+      "classes": {
+        "adjust": 10,
+        "cap": 18,
+        "close": 4,
+        "cut": 43,
+        "insert": 78,
+        "label": 36,
+        "measure": 24,
+        "move": 21,
+        "open": 16,
+        "position": 12,
+        "press": 12,
+        "pull_out": 36,
+        "remove": 22,
+        "tear": 17,
+        "wrap": 36
+      },
+      "runs": 334
+    },
+    "fold_M_train_JMR.jsonl": {
+      "samples": 784,
+      "people": {
+        "MR": 385,
+        "J": 399
+      },
+      "classes": {
+        "adjust": 22,
+        "cap": 32,
+        "close": 15,
+        "cut": 81,
+        "insert": 153,
+        "label": 72,
+        "measure": 48,
+        "move": 44,
+        "open": 40,
+        "position": 24,
+        "press": 24,
+        "pull_out": 72,
+        "remove": 48,
+        "tear": 38,
+        "wrap": 71
+      },
+      "runs": 678
+    },
+    "fold_M_val_M.jsonl": {
+      "samples": 423,
+      "people": {
+        "M": 423
+      },
+      "classes": {
+        "adjust": 14,
+        "cap": 16,
+        "close": 10,
+        "cut": 46,
+        "insert": 82,
+        "label": 38,
+        "measure": 25,
+        "move": 39,
+        "open": 24,
+        "position": 13,
+        "press": 12,
+        "pull_out": 35,
+        "remove": 18,
+        "tear": 15,
+        "wrap": 36
+      },
+      "runs": 350
+    },
+    "fold_J_train_MMR.jsonl": {
+      "samples": 808,
+      "people": {
+        "M": 423,
+        "MR": 385
+      },
+      "classes": {
+        "adjust": 24,
+        "cap": 34,
+        "close": 14,
+        "cut": 89,
+        "insert": 160,
+        "label": 74,
+        "measure": 49,
+        "move": 60,
+        "open": 40,
+        "position": 25,
+        "press": 24,
+        "pull_out": 71,
+        "remove": 40,
+        "tear": 32,
+        "wrap": 72
+      },
+      "runs": 684
+    },
+    "fold_J_val_J.jsonl": {
+      "samples": 399,
+      "people": {
+        "J": 399
+      },
+      "classes": {
+        "adjust": 12,
+        "cap": 14,
+        "close": 11,
+        "cut": 38,
+        "insert": 75,
+        "label": 36,
+        "measure": 24,
+        "move": 23,
+        "open": 24,
+        "position": 12,
+        "press": 12,
+        "pull_out": 36,
+        "remove": 26,
+        "tear": 21,
+        "wrap": 35
+      },
+      "runs": 344
+    },
+    "fold_MR_train_MJ.jsonl": {
+      "samples": 822,
+      "people": {
+        "M": 423,
+        "J": 399
+      },
+      "classes": {
+        "adjust": 26,
+        "cap": 30,
+        "close": 21,
+        "cut": 84,
+        "insert": 157,
+        "label": 74,
+        "measure": 49,
+        "move": 62,
+        "open": 48,
+        "position": 25,
+        "press": 24,
+        "pull_out": 71,
+        "remove": 44,
+        "tear": 36,
+        "wrap": 71
+      },
+      "runs": 694
+    },
+    "fold_MR_val_MR.jsonl": {
+      "samples": 385,
+      "people": {
+        "MR": 385
+      },
+      "classes": {
+        "adjust": 10,
+        "cap": 18,
+        "close": 4,
+        "cut": 43,
+        "insert": 78,
+        "label": 36,
+        "measure": 24,
+        "move": 21,
+        "open": 16,
+        "position": 12,
+        "press": 12,
+        "pull_out": 36,
+        "remove": 22,
+        "tear": 17,
+        "wrap": 36
+      },
+      "runs": 334
+    }
+  },
+  "paths": {
+    "rgb_cam_00143": {
+      "missing": 1207,
+      "first_missing": [
+        "sample_0002",
+        "sample_0003",
+        "sample_0004",
+        "sample_0005",
+        "sample_0006",
+        "sample_0007",
+        "sample_0008",
+        "sample_0009",
+        "sample_0010",
+        "sample_0011"
+      ]
+    },
+    "rgb_cam_00143_motion_crop_m32": {
+      "missing": 1207,
+      "first_missing": [
+        "sample_0002",
+        "sample_0003",
+        "sample_0004",
+        "sample_0005",
+        "sample_0006",
+        "sample_0007",
+        "sample_0008",
+        "sample_0009",
+        "sample_0010",
+        "sample_0011"
+      ]
+    },
+    "mindrove": {
+      "missing": 0,
+      "first_missing": []
+    }
+  }
+}
+Traceback (most recent call last):
+  File "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_mvit_motioncrop_seed1_20260721/tools/compute_rgb_stats.py", line 91, in <module>
+    main()
+  File "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_mvit_motioncrop_seed1_20260721/tools/compute_rgb_stats.py", line 58, in main
+    raise FileNotFoundError(f"{len(missing)} RGB files are missing; first entries: {missing[:5]}")
+FileNotFoundError: 822 RGB files are missing; first entries: [{'sample_name': 'sample_0002', 'path': None}, {'sample_name': 'sample_0003', 'path': None}, {'sample_name': 'sample_0004', 'path': None}, {'sample_name': 'sample_0005', 'path': None}, {'sample_name': 'sample_0006', 'path': None}]
+[Command] /mnt/parscratch/users/mes19jz/anaconda/.envs/pytorch/bin/python /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_supcon_repair_20260806/tools/prepare_protocol.py --dataset-root /mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset --train N_as_test/train_manifest_except_take_put.jsonl --val N_as_test/val_manifest_except_take_put.jsonl --output /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_supcon_repair_20260806/runtime/splits
+[Command] /mnt/parscratch/users/mes19jz/anaconda/.envs/pytorch/bin/python /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_mvit_motioncrop_seed1_20260721/tools/compute_rgb_stats.py --dataset-root /mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset --manifest /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_supcon_repair_20260806/runtime/splits/train_MJ.jsonl --rgb-key rgb_cam_00143_motion_crop_m32 --output /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_supcon_repair_20260806/runtime/motion_crop_train_stats.json
+Traceback (most recent call last):
+  File "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_supcon_repair_20260806/run.py", line 135, in <module>
+    if __name__=="__main__": main()
+                             ^^^^^^
+  File "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_supcon_repair_20260806/run.py", line 134, in main
+    else: getattr(r,args.action)()
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_supcon_repair_20260806/run.py", line 29, in prepare
+    self.run([self.python,self.base/"tools"/"compute_rgb_stats.py","--dataset-root",self.dataset,"--manifest",self.splits/"train_MJ.jsonl","--rgb-key","rgb_cam_00143_motion_crop_m32","--output",self.crop_stats])
+  File "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_supcon_repair_20260806/run.py", line 20, in run
+    if not self.args.dry_run: subprocess.run([str(x) for x in cmd], cwd=str(self.project), env=self.env, check=True)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/parscratch/users/mes19jz/anaconda/.envs/pytorch/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/mnt/parscratch/users/mes19jz/anaconda/.envs/pytorch/bin/python', '/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_mvit_motioncrop_seed1_20260721/tools/compute_rgb_stats.py', '--dataset-root', '/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset', '--manifest', '/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_supcon_repair_20260806/runtime/splits/train_MJ.jsonl', '--rgb-key', 'rgb_cam_00143_motion_crop_m32', '--output', '/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_supcon_repair_20260806/runtime/motion_crop_train_stats.json']' returned non-zero exit status 1.

@@ -48,6 +48,29 @@
     "head_lr": 0.001, "backbone_lr": 0.0003, "weight_decay": 0.0001,
     "schedule": [50, 75], "save_period": 25
   },
+  "stage6": {
+    "purpose": "Separate backbone representation capacity from SupCon effects, then test whether Kinetics-400 initialization makes RGB SupCon useful.",
+    "stage6a": [
+      {"index": 0, "id": "s6a_a0_r3d10_random", "backbone": "resnet3d10", "backbone_init": "random", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "batch_size": 32, "rgb_mean": [0.3752, 0.3864, 0.3960], "rgb_std": [0.2934, 0.2724, 0.2644], "seed": 1},
+      {"index": 1, "id": "s6a_a1_r3d18_k400", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "batch_size": 24, "rgb_mean": [0.43216, 0.394666, 0.37645], "rgb_std": [0.22803, 0.22145, 0.216989], "seed": 1},
+      {"index": 2, "id": "s6a_a2_r2plus1d18_k400", "backbone": "r2plus1d18", "backbone_init": "kinetics400", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "batch_size": 16, "rgb_mean": [0.43216, 0.394666, 0.37645], "rgb_std": [0.22803, 0.22145, 0.216989], "seed": 1},
+      {"index": 3, "id": "s6a_a3_mvitv2s_k400", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "representation": "rgb", "rgb_source": "original", "n_frames": 16, "temporal_mode": "current", "batch_size": 8, "rgb_mean": [0.45, 0.45, 0.45], "rgb_std": [0.225, 0.225, 0.225], "seed": 1},
+      {"index": 4, "id": "s6a_a4_swin3dt_k400", "backbone": "swin3d_t", "backbone_init": "kinetics400", "representation": "rgb", "rgb_source": "original", "n_frames": 32, "temporal_mode": "current", "batch_size": 8, "rgb_mean": [0.485, 0.456, 0.406], "rgb_std": [0.229, 0.224, 0.225], "seed": 1}
+    ],
+    "stage6b": {
+      "screen_seed": 1, "policies": ["head", "partial", "full"],
+      "epochs": {"head": 25, "partial": 50, "full": 100},
+      "cnn_backbone_lr": 0.0001, "transformer_backbone_lr": 0.00003,
+      "head_lr": 0.001, "weight_decay": 0.0001, "save_period": 25,
+      "confirm_seeds": [2, 3]
+    },
+    "stage6c": {
+      "epochs": 200, "save_interval": 50, "warmup_epochs": 10,
+      "cnn_lr": 0.0001, "transformer_lr": 0.00003,
+      "experiments": ["random_supcon", "k400_supcon", "k400_supcon_patch_frozen"],
+      "confirm_seeds": [2, 3]
+    }
+  },
   "imu_teacher": {
     "checkpoint_rel": "results/cl_mindrove_N_except_take_put_adamw_44/signal_imu/suploss_only/checkpoint_0200.pth",
     "args_rel": "results/cl_mindrove_N_except_take_put_adamw_44/signal_imu/suploss_only/args.json",

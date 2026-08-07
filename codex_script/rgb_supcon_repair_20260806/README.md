@@ -17,6 +17,8 @@
 7. Stage 5：三种子运行 scratch full、SupLoss head-only、SupLoss full。
 8. 只有所有设计和 checkpoint 已固定后，手动解锁并测试 N；任何自动流程都不提交 N 测试。
 
+独立追加的 Stage 6 用于比较 Kinetics-400 视频 backbone，并进一步拆分“强初始化”“下游迁移”和“SupCon”的贡献。它不会改写 Stage 0–5 的定义；完整顺序与选择门见 `stage6_backbone_transfer/README.md`。建议在 Stage 0 已生成新协议后运行 Stage 6。
+
 不要把 Stage 1–4 全部无条件连续提交。每个阶段结束后先读取 `results/rgb_supcon_repair_20260806/summary/diagnostic_summary.csv`，通过停止规则再进入下一阶段。
 
 筛选出最多两个候选后，可用同一启动器补三折受试者验证，例如：
@@ -102,8 +104,10 @@ results/rgb_supcon_repair_20260806/
 │   ├── motion_crop_train_stats.json
 │   └── imu_teacher/train_MJ_features.pth
 ├── pretrain/stage1|stage2|stage3|stage4/<experiment>/
-├── diagnostics/stage1|stage2|stage3|stage4/<experiment>/diagnostics.json
+├── pretrain/stage6c/<experiment>/
+├── diagnostics/stage1|stage2|stage3|stage4|stage6a|stage6c/<experiment>/diagnostics.json
 ├── classifier/stage5/<mode_seed>/
+├── classifier/stage6b|stage6b_confirm|stage6c|stage6c_confirm/<experiment>/
 ├── test/stage5/<mode_seed>/test_results.csv
 └── summary/
     ├── diagnostic_summary.csv

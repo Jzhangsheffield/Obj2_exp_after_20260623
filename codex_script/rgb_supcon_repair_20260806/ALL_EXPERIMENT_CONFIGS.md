@@ -104,3 +104,38 @@ MR 还做 reverse、shuffle、repeat-center 三种时间扰动，报告原始/�
 ## I. 与 ProtoLoss V2 / RelLoss V2 的衔接
 
 本包故意先不把 Proto/Rel 加进 Stage 1–4，因为旧证据显示基础 RGB 表征本身低秩且不含时间顺序；在坏表示上增加原型约束无法判断损失设计是否有效。Stage 5 证明 repaired SupLoss 至少超过 matched scratch 后，再把所选 backbone/input/split 移植到现有 V2 包，做 Sup、+ProtoV2、+RelV2、+Both 和 null-gradient 的同种子 factorial。若 repaired SupLoss 仍不超过 scratch，应继续修复视觉表征，而不是调大 λproto/λrel。
+
+## J. Stage 6：强视频 backbone 与迁移/SupCon 拆分
+
+Stage 6 使用与主包相同的 `00143`、M+J train、MR validation、tier1 15 类和 224×224 输入，不读取 N。详细运行命令见 `stage6_backbone_transfer/README.md`。
+
+### J1. 6A 固定表征筛选
+
+| index | backbone | 初始化 | 帧数 | batch | mean / std | 作用 |
+|---:|---|---|---:|---:|---|---|
+| 0 | custom ResNet3D-10 | random | 16 | 32 | 数据集统计 | 随机负控制，预计接近机会水平 |
+| 1 | torchvision R3D-18 | K400 | 16 | 24 | K400 `[.43216,.394666,.37645] / [.22803,.22145,.216989]` | 标准 3D CNN |
+| 2 | R(2+1)D-18 | K400 | 16 | 16 | 同 R3D | 分解空间/时间卷积，检验显式时间卷积收益 |
+| 3 | MViT-v2-S | K400 | 16 | 8 | `[.45,.45,.45] / [.225,.225,.225]` | 多尺度时空注意力 |
+| 4 | Swin3D-T | K400 | 32 | 8 | ImageNet mean/std | 局部窗口时空注意力，保持官方 32 帧输入 |
+
+6A 不训练任何参数。线性探针只在 M+J 特征上拟合，在 MR 特征上评估；因此它衡量的是 frozen cross-person transfer，而不是微调能力。除动作 silhouette 外新增 person silhouette：动作值越高越好，person 值过高意味着身份泄漏/身份主导。
+
+### J2. 6B 迁移策略
+
+6A 前两名各做 `head(25 epoch)`、`partial(50)`、`full(100)`，仅 seed 1 筛选；胜出的 backbone/policy 再补 seed 2/3。所有策略的 head LR 为 `1e-3`；partial/full 的 CNN backbone LR 为 `1e-4`，Transformer 为 `3e-5`；AdamW、weight decay `1e-4`、每 25 epoch 保存。
+
+`partial` 的含义不是随意冻结百分比：R3D/R(2+1)D 只解冻 layer4；MViT 解冻最后两个 attention blocks 与 norm；Swin3D 解冻最后 stage 与 norm；分类头始终训练。6B 完全不运行本数据 SupCon，是后续 C 组必须超过的强基线。
+
+### J3. 6C SupCon 因果组
+
+| 组 | 初始化 → 预训练 → 微调 | 解释 |
+|---|---|---|
+| C0 | K400 → 无 SupCon → 6B 胜出策略 | 强迁移基线，直接复用 6B |
+| C1 | random → SupCon 200 → 同策略 | 原有“仅靠本数据对比训练”路线 |
+| C2 | K400 → SupCon 200 → 同策略 | 检验强动作先验能否避免 RGB SupCon 表征失败 |
+| C3 | K400 → SupCon 200（patch projection frozen）→ 同策略 | 仅 Transformer；检验底层表示灾难性遗忘 |
+
+C1–C3 都是 SupLoss-only、temperature `0.07`、queue `1088`、projection `128`、6 positives、cosine、warm-up 10、save interval 50，不启用辅助 CE/Proto/Rel。Transformer LR `3e-5`，CNN LR `1e-4`。C3 冻结 MViT `conv_proj` 或 Swin3D `patch_embed.proj`；依据 MoCo v3 的实践保护 patch projection，但不冻结第一个 Transformer block。
+
+选择规则：先要求相对 C0 的 seed-1 MR BA/Macro-F1 有明确正增益，同时 frozen effective rank/动作 silhouette 不恶化、person silhouette 不升高；再补 seed 2/3。最终报告三种子均值、样本标准差以及 paired seed 差值。若 C2/C3 未超过 C0，应结论为“当前本数据 SupCon 没有增加 K400 表征价值”，而不是继续无界调参。

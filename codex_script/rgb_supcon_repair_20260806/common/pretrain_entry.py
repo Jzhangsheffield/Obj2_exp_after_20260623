@@ -35,7 +35,10 @@ def patch_lr(source):
             if epoch >= milestone:
                 lr *= 0.1
 '''
-    return replace_once(source, old, new, "learning-rate-warmup")
+    source = replace_once(source, old, new, "learning-rate-warmup")
+    return replace_once(source, '        param_group["lr"] = lr\n',
+                        '        param_group["lr"] = lr * float(param_group.get("repair_lr_scale", 1.0))\n',
+                        "learning-rate-param-group-scale")
 
 def patch_teacher(source):
     source = replace_once(source,
@@ -84,6 +87,8 @@ def main():
     p.add_argument("--repair-source", required=True); p.add_argument("--repair-src-root", required=True)
     p.add_argument("--repair-representation", choices=["rgb", "absdiff", "rgb_absdiff"], default="rgb")
     p.add_argument("--repair-temporal-mode", choices=["current", "t3_lfb"], default="current")
+    p.add_argument("--repair-backbone-init", choices=["random", "kinetics400"], default="random")
+    p.add_argument("--repair-freeze-patch-embed", action="store_true")
     p.add_argument("--repair-lr-warmup-epochs", type=int, default=0)
     p.add_argument("--repair-aux-ce-weight", type=float, default=0.0)
     p.add_argument("--repair-xmodal-weight", type=float, default=0.0); p.add_argument("--repair-xrel-weight", type=float, default=0.0)
@@ -95,7 +100,8 @@ def main():
     for path in (package_root, project, src_root):
         if str(path) not in sys.path: sys.path.insert(0, str(path))
     from common.runtime_patch import install
-    install(src_root, custom.repair_representation, custom.repair_temporal_mode)
+    install(src_root, custom.repair_representation, custom.repair_temporal_mode,
+            custom.repair_backbone_init, custom.repair_freeze_patch_embed)
     from codex_script.rgb_round2_20260717.rgb_round2_pretrain_entry import patch_training_source
     source = patch_teacher(patch_lr(patch_training_source(source_path.read_text(encoding="utf-8"))))
     if custom.repair_parse_only:
