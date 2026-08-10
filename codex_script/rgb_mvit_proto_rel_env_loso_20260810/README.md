@@ -105,21 +105,21 @@ scripts\windows\11_summarize.bat
 
 ### 4.2 Stanage / Slurm
 
-先检查 `scripts/slurm/common_env.sh` 中的项目根目录、数据根目录和 Conda 环境名称，然后：
+先检查 `scripts/slurm/common_env.sh` 中的项目根目录、数据根目录和 Conda 环境名称。在当前已经可以正常使用 GPU/PyTorch 环境的节点上，手动执行校验和数据准备：
 
 ```bash
 cd /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/codex_script/rgb_mvit_proto_rel_env_loso_20260810
-sbatch scripts/slurm/00_validate.slurm
-sbatch scripts/slurm/01_prepare.slurm
+bash scripts/slurm/00_validate.slurm
+bash scripts/slurm/01_prepare.slurm
 ```
 
-核心筛选可以自动建立依赖链：
+确认 `results/rgb_mvit_pr_env_loso_20260810/runtime/splits/protocol_audit.json` 已生成后，提交仅包含 GPU 训练的核心依赖链：
 
 ```bash
 bash scripts/slurm/submit_core_screen.sh
 ```
 
-该脚本提交 Stage 1、2A、3A、4；Stage 2B、3B 为条件实验，Stage 5 必须在写入 `selection.json` 后手工提交：
+该脚本不会提交 `00_validate.slurm` 或 `01_prepare.slurm`；它会先检查 prepare 的审计文件，然后只提交 Stage 1、2A、3A、4。Stage 2B、3B 为条件实验，Stage 5 必须在写入 `selection.json` 后手工提交：
 
 ```bash
 sbatch scripts/slurm/04_stage2b_optional.slurm
