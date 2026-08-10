@@ -1,0 +1,15 @@
+{
+  "stage5_ready": false,
+  "best_p2_proto": "",
+  "best_p3_proto": "",
+  "best_p2_rel": "",
+  "best_p3_rel": "",
+  "stage6_ready": false,
+  "best_p2": "",
+  "best_p3": "",
+  "best_overall": "",
+  "best_p1": "",
+  "stage7_ready": false,
+  "stage7_best_overall": "",
+  "notes": "Use experiment IDs from Stage 1-5. Keep P2 and P3 selections separate and enable gates only after reviewing summaries."
+}
