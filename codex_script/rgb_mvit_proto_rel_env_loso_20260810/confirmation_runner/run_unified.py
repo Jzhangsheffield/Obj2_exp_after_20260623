@@ -14,11 +14,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PARENT = ROOT.parent
-if str(PARENT) not in sys.path:
-    sys.path.insert(0, str(PARENT))
+# Both PARENT/common and confirmation_runner/common are real Python packages.
+# When this file is executed by path, confirmation_runner is sys.path[0].  A
+# simple "insert only when absent" check is insufficient because PARENT may
+# already exist later in sys.path (for example through PYTHONPATH), allowing
+# confirmation_runner/common to shadow PARENT/common.  Always promote the
+# parent package to position zero before importing its launcher utilities.
+_parent_text = str(PARENT)
+sys.path[:] = [entry for entry in sys.path if entry != _parent_text]
+sys.path.insert(0, _parent_text)
 
+from common import config as _parent_config  # noqa: E402
 from common.config import append  # noqa: E402
 from run import Runner as ParentRunner  # noqa: E402
+
+_expected_config = (PARENT / "common" / "config.py").resolve()
+_loaded_config = Path(_parent_config.__file__).resolve()
+if _loaded_config != _expected_config:
+    raise ImportError(
+        "Loaded the wrong common.config module: "
+        f"expected={_expected_config}, loaded={_loaded_config}"
+    )
 
 
 REGISTRY_PATH = ROOT / "config" / "unified_experiment_registry.json"

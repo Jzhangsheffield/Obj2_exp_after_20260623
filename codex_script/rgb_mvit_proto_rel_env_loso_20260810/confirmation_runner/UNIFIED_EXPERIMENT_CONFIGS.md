@@ -67,6 +67,70 @@
 
 `num_positive=6`对这里使用的SupLoss路径不起作用；SupLoss使用同标签正样本集合。该参数只对KCL路径有意义。
 
+### 4.1 统一简称与历史实验名称映射
+
+统一runner使用较短、可组合的`config_id`作为输出目录名；`source_stage/source_id`记录它来自原实验包的哪个配置。两者名称不同不表示参数丢失。
+
+| 统一简称 | 原Stage配置或模板 | 修改内容 | 与原配置的关系 |
+|---|---|---|---|
+| `d0` | `stage1/d0_k400_direct` | 无 | 直接简称，参数相同 |
+| `s0` | `stage1/s0_sup` | 无 | 直接简称，参数相同 |
+| `rn3` | `stage3a/rn3_k3_s125` | 无 | 直接简称，参数相同 |
+| `rl3` | `stage3a/rl3_k3_s125` | 无 | 直接简称，参数相同 |
+| `rn2` | `stage3a/rn2_k3_s125` | 无 | 直接简称，参数相同 |
+| `rl2` | `stage3a/rl2_k3_s125` | 无 | 直接简称，参数相同 |
+| `h00_p1_k10` | 模板：`stage4/h2_emg_both_p1_k10` | `lambda_proto: 1→0`，`lambda_rel: 1→0` | 新构造的严格Null，并非历史配置改名 |
+| `h10_p1_k10` | 模板：`stage4/h2_emg_both_p1_k10` | `lambda_rel: 1→0` | 新构造的Proto-only消融 |
+| `h01_p1_k10` | 模板：`stage4/h2_emg_both_p1_k10` | `lambda_proto: 1→0` | 新构造的Rel-only消融 |
+| `h11_p1_k10` | `stage4/h2_emg_both_p1_k10` | 无有效Loss参数修改 | 原H2 Active的统一名称 |
+
+`h00/h10/h01/h11`中的两位数字依次表示ProtoLoss和RelLoss是否产生训练梯度：
+
+```text
+h00 = Proto 0，Rel 0
+h10 = Proto 1，Rel 0
+h01 = Proto 0，Rel 1
+h11 = Proto 1，Rel 1
+```
+
+### 4.2 为什么`h00_p1_k10`不是历史`hn1_null_p1`
+
+历史Stage 4确实存在`hn1_null_p1`，但它的`rel_topk_diff_classes=3`，而历史H2 `h2_emg_both_p1_k10`使用Top-K10。若直接把`hn1`和H2配对，除了Loss开关外，内部关系配置也不完全相同。
+
+新`h00_p1_k10`直接复制H2模板，并且只将：
+
+```text
+lambda_proto = 0
+lambda_rel   = 0
+```
+
+其余设置继续保持：
+
+```text
+ablation_mode            = contrastive_proto_rel
+proto_positive_mode      = all
+num_prototypes           = 1
+proto_start / rel_start  = 50 / 50
+preview_ema_momentum     = 0.5
+rel_same/diff_weight     = 1 / 1
+rel_topk_diff_classes    = 10
+rel_lambda_schedule      = cosine
+```
+
+因此`h00_p1_k10`是与`h11_p1_k10`严格匹配的新训练配置。历史`hn1_null_p1`已有结果不能直接当作`h00_p1_k10`结果复用，必须单独训练`h00`。
+
+### 4.3 之前最小确认清单与统一包的对应关系
+
+| 之前记录中的名称 | 统一包名称 | 说明 |
+|---|---|---|
+| `s0_sup` | `s0` | 同一配置 |
+| `rn3_k3_s125` | `rn3` | 同一配置 |
+| `rl3_k3_s125` | `rl3` | 同一配置 |
+| `hn1` / `hn1_null_p1` | `h00_p1_k10`取代其对照角色 | 不等价；后者是新严格Null |
+| `h2_emg_both_p1_k10` | `h11_p1_k10` | 同一Active设置 |
+
+任务清单与`resolved_config.json`会同时保存`config_id`、`full_id`、`source_stage`和`source_id`。分析和目录使用统一简称，追溯历史配置时使用source字段。
+
 ## 5. 对比学习增强
 
 所有增强都对同一clip的全部帧使用时间一致的空间参数，避免逐帧随机变换制造虚假运动。微调增强保持固定的旧版mild配置，以下策略只改变对比预训练，以隔离预训练增强效应。

@@ -43,6 +43,8 @@ sbatch confirmation_runner/scripts/slurm/u00_prepare.slurm
 python confirmation_runner/run_unified.py list-configs
 ```
 
+统一包中的短名称与原Stage名称可能不同。例如`h11_p1_k10`对应原`stage4/h2_emg_both_p1_k10`，而`h00_p1_k10`是以H2为模板、仅把两个新增Loss权重设为0后新建的严格Null；它不等于历史`hn1_null_p1`。完整逐项映射见[`UNIFIED_EXPERIMENT_CONFIGS.md`第4.1–4.3节](./UNIFIED_EXPERIMENT_CONFIGS.md)。
+
 ## 4. 推荐运行顺序
 
 ### U1a：15类最小确认（推荐先运行）
@@ -234,3 +236,25 @@ last.pth
 - 不要把旧15类checkpoint加载到17类分类头；对比预训练backbone可加载，但分类微调必须重新开始。
 - 输出路径包含task、protocol、对象、Loss、增强、采样和seed，不会覆盖旧实验。
 - 每个运行目录保存`resolved_config.json`及三份manifest的SHA256，便于复核。
+
+## 10. `common.config`导入错误
+
+父实验包和`confirmation_runner`都包含名为`common`的Python包，但只有父包的`common`中包含`config.py`。统一入口已经将父包目录强制放到Python搜索路径首位，并检查最终导入的文件必须是：
+
+```text
+rgb_mvit_proto_rel_env_loso_20260810/common/config.py
+```
+
+因此不要把父目录的`common/config.py`复制到`confirmation_runner/common`。复制会产生两份配置工具，后续修改容易不一致。如果看到：
+
+```text
+ModuleNotFoundError: No module named 'common.config'
+```
+
+说明HPC上仍是修复前的`run_unified.py`或`common_env.sh`。重新上传这两个文件后，先执行：
+
+```bash
+python confirmation_runner/run_unified.py validate --platform hpc
+```
+
+验证通过后再重新运行`submit_unified.sh`。失败发生在任务清单生成之前，不会留下已提交的训练数组。
