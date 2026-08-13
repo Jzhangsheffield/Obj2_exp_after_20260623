@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "package": "rgb_mvit_pr_confirmation_20260812",
+  "output_rel": "results/rgb_mvit_pr_confirm_20260812",
+  "source_protocol_output_rel": "results/rgb_mvit_pr_env_loso_20260810",
+  "primary_metric": "balanced_accuracy",
+  "secondary_metric": "macro_f1",
+  "auxiliary_metric": "accuracy",
+  "default_seeds": [2, 3],
+  "default_subjects": ["M", "J", "N"],
+  "benchmark_controls": ["s0", "d0"],
+  "groups": {
+    "phase1_locked": ["s0", "rn3", "rl3", "h00_p1_k10", "h11_p1_k10"],
+    "phase1_with_direct": ["d0", "s0", "rn3", "rl3", "h00_p1_k10", "h11_p1_k10"],
+    "phase1_rel_p2": ["s0", "rn2", "rl2"],
+    "phase1_all": ["d0", "s0", "rn3", "rl3", "h00_p1_k10", "h11_p1_k10", "rn2", "rl2"],
+    "phase2_h2_ablation": ["s0", "h00_p1_k10", "h10_p1_k10", "h01_p1_k10", "h11_p1_k10"]
+  },
+  "pairs": [
+    {"pair_id": "rel_p3_late_k3", "control": "rn3", "active": "rl3", "expected_parameter_differences": ["lambda_rel"]},
+    {"pair_id": "h2_joint_p1_k10", "control": "h00_p1_k10", "active": "h11_p1_k10", "expected_parameter_differences": ["lambda_proto", "lambda_rel"]},
+    {"pair_id": "rel_p2_late_k3", "control": "rn2", "active": "rl2", "expected_parameter_differences": ["lambda_rel"]},
+    {"pair_id": "h2_proto_only", "control": "h00_p1_k10", "active": "h10_p1_k10", "expected_parameter_differences": ["lambda_proto"]},
+    {"pair_id": "h2_rel_only", "control": "h00_p1_k10", "active": "h01_p1_k10", "expected_parameter_differences": ["lambda_rel"]},
+    {"pair_id": "h2_proto_added_to_rel", "control": "h01_p1_k10", "active": "h11_p1_k10", "expected_parameter_differences": ["lambda_proto"]},
+    {"pair_id": "h2_rel_added_to_proto", "control": "h10_p1_k10", "active": "h11_p1_k10", "expected_parameter_differences": ["lambda_rel"]}
+  ],
+  "configs": {
+    "d0": {"full_id": "d0_k400_direct", "source_stage": "stage1", "source_id": "d0_k400_direct", "role": "K400 direct full-finetuning benchmark without contrastive pretraining", "overrides": {}},
+    "s0": {"full_id": "s0_sup", "source_stage": "stage1", "source_id": "s0_sup", "role": "SupLoss-only baseline", "overrides": {}},
+    "rn3": {"full_id": "rn3_k3_s125", "source_stage": "stage3a", "source_id": "rn3_k3_s125", "role": "P3 late-K3 Null-rel control", "overrides": {}},
+    "rl3": {"full_id": "rl3_k3_s125", "source_stage": "stage3a", "source_id": "rl3_k3_s125", "role": "P3 late-K3 active RelLoss candidate", "overrides": {}},
+    "rn2": {"full_id": "rn2_k3_s125", "source_stage": "stage3a", "source_id": "rn2_k3_s125", "role": "P2 late-K3 Null-rel control", "overrides": {}},
+    "rl2": {"full_id": "rl2_k3_s125", "source_stage": "stage3a", "source_id": "rl2_k3_s125", "role": "P2 late-K3 active RelLoss candidate", "overrides": {}},
+    "h00_p1_k10": {"full_id": "h00_p1_k10_strict_null", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "Strict H2 Null: neither ProtoLoss nor RelLoss updates the model", "overrides": {"lambda_proto": 0.0, "lambda_rel": 0.0}},
+    "h10_p1_k10": {"full_id": "h10_p1_k10_proto_only", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "H2 Proto-only ablation", "overrides": {"lambda_proto": 1.0, "lambda_rel": 0.0}},
+    "h01_p1_k10": {"full_id": "h01_p1_k10_rel_only", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "H2 Rel-only ablation", "overrides": {"lambda_proto": 0.0, "lambda_rel": 1.0}},
+    "h11_p1_k10": {"full_id": "h11_p1_k10_proto_rel", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "H2 active ProtoLoss plus RelLoss candidate", "overrides": {"lambda_proto": 1.0, "lambda_rel": 1.0}}
+  }
+}

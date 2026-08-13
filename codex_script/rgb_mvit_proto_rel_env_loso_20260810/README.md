@@ -1,5 +1,9 @@
 # RGB MViT-v2-S + ProtoLoss/RelLoss（旧版）环境感知 LOSO 实验包
 
+> 2026-08-13：后续未运行实验已经迁移到[`confirmation_runner/run_unified.py`](./confirmation_runner/run_unified.py)。新协议包括15/17类双任务、take/put、被试级开发验证、无验证最终重训练、50轮微调和对比学习增强筛选。请先阅读[`UNIFIED_EXPERIMENT_CONFIGS.md`](./confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md)与[`UNIFIED_USAGE.md`](./confirmation_runner/UNIFIED_USAGE.md)。本目录原Stage 1–7仍保持不变，用于复现历史结果。
+
+> 2026-08-12新增：跨对象、多seed锁定确认实验、灵活提交与配对统计工具位于 [`confirmation_runner`](./confirmation_runner/README.md)。原Stage 1–7及历史输出保持不变。
+
 ## 1. 实验目标
 
 本实验包固定使用 **Kinetics-400 初始化的 MViT-v2-S**，验证原项目中已经实现、且早于 V2 方案的 ProtoLoss 和 RelLoss 能否在强时序骨干上进一步超过：
@@ -202,3 +206,25 @@ Stage 5 完成后再填写 `best_p2`、`best_p3`、`best_overall`、`best_p1` �
 5. prototype 不应大面积死亡或全部高度相似；P3 若真正对应光照，assignment 与 lighting 应出现稳定但不能完全压倒动作类别的关联。
 
 完整参数与每个实验的解释见 [ALL_EXPERIMENT_CONFIGS.md](ALL_EXPERIMENT_CONFIGS.md)。
+
+## 9. 已完成 Stage 1/2A/3A/4 的 MR 外层测试
+
+当前筛选模型均使用 fold_MR 的 M/J/N 开发数据训练，测试清单为从未参与训练或 inner-val 的 `runtime/splits/fold_MR/outer_test.jsonl`（MR，共 385 个样本）。不要改用原 N-as-test 测试清单，因为 fold_MR 训练中已经包含 N，会产生受试者泄漏。
+
+Stanage 使用一个 GPU 作业依次测试全部 30 个最佳验证权重并自动汇总：
+
+```bash
+sbatch scripts/slurm/12_test_completed_screen_mr.slurm
+```
+
+Windows：
+
+```bat
+scripts\windows\12_test_completed_screen_mr.bat
+```
+
+结果仍写入 `results/rgb_mvit_pr_env_loso_20260810`：逐实验总表位于 `test/fold_MR/<stage>/<experiment>/test_results.csv`，逐样本预测和详细指标位于对应 classifier run 目录，最终排名位于 `summary/outer_test_ranking.csv` 和 `summary/SUMMARY.md`。
+
+Slurm 脚本会先检查30个最佳验证权重，并跳过已经存在非空 `test_results.csv` 的实验，因此作业中断后可直接重新提交继续测试。若需要强制重测某个实验，先移走该实验对应的 `test_results.csv`。
+
+本次一次性测试 30 个候选主要用于检查验证趋势能否迁移到 held-out MR。由于所有候选都被同时查看，不能再根据 MR 测试结果继续调参并把同一 MR 结果当作无偏最终性能；正式结论仍需冻结配置后做四人 LOSO/多 seed。

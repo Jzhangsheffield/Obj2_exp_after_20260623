@@ -211,7 +211,8 @@ class Runner:
             "--learning_rate": common["learning_rate"], "--weight_decay": common["weight_decay"], "--optimizer": common["optimizer"],
             "--seed": row.get("seed", 1), "--print_freq": common["print_freq"], "--save_interval": common["save_interval"],
             "--prototype_diagnostic_interval": common["prototype_diagnostic_interval"],
-            "--rel_checkpoint_after_epochs": common["rel_checkpoint_after_epochs"], "--sampler_type": "none",
+            "--rel_checkpoint_after_epochs": common["rel_checkpoint_after_epochs"],
+            "--sampler_type": row.get("pretrain_sampler", "none"),
             "--rgb_hflip_p": aug["hflip_p"], "--rgb_vflip_p": aug["vflip_p"], "--rgb_jitter_p": aug["jitter_p"],
             "--rgb_jitter_brightness": aug["jitter_strength"][0], "--rgb_jitter_contrast": aug["jitter_strength"][1],
             "--rgb_jitter_saturation": aug["jitter_strength"][2], "--rgb_jitter_hue": aug["jitter_strength"][3],
@@ -219,6 +220,11 @@ class Runner:
         }
         for flag, value in values.items():
             append(command, flag, value)
+        if row.get("pretrain_sampler") == "weighted":
+            append(command, "--weighted_sampler_mode", row.get("weighted_sampler_mode", "sqrt_inv"))
+        elif row.get("pretrain_sampler") == "balanced_batch":
+            append(command, "--balanced_classes_per_batch", row.get("balanced_classes_per_batch", 16))
+            append(command, "--balanced_samples_per_class", row.get("balanced_samples_per_class", 2))
         for flag, value in {
             "--rgb_mean": model["rgb_mean"], "--rgb_std": model["rgb_std"],
             "--rgb_out_hw": [model["image_size"], model["image_size"]], "--rrc_scale": aug["rrc_scale"],

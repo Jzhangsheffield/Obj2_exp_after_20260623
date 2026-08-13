@@ -1,5 +1,9 @@
 # 全部实验配置与逐项说明
 
+> 2026-08-13后续实验更新：15类最小确认、17类take/put任务、增强策略、采样策略和无验证50轮最终协议统一记录在[`confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md`](./confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md)。本文件下方内容描述原始Stage 1–7，不应直接用于新实验的运行参数。
+
+> 新增的跨对象/多seed锁定确认配置（包括修正后的H2严格Null和2×2消融）统一记录在 [`confirmation_runner/LOCKED_CONFIG_PARAMETER_REFERENCE.md`](./confirmation_runner/LOCKED_CONFIG_PARAMETER_REFERENCE.md)，机器配置位于`confirmation_runner/config/locked_config_registry.json`。
+
 ## A. 固定配置
 
 ### A1. 数据和任务

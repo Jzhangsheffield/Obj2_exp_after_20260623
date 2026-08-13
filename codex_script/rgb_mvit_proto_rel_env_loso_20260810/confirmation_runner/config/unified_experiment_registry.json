@@ -1,0 +1,109 @@
+{
+  "schema_version": 2,
+  "package": "rgb_mvit_pr_unified_followup_20260813",
+  "output_rel": "results/rgb_mvit_pr_unified_followup_20260813",
+  "split_output_rel": "results/rgb_mvit_pr_unified_followup_20260813/runtime/splits",
+  "primary_metric": "balanced_accuracy",
+  "secondary_metrics": ["macro_f1", "accuracy"],
+  "default_task": "t15",
+  "default_protocol": "final_refit",
+  "default_augmentation": "a0",
+  "default_sampling": "natural",
+  "default_seeds": [2, 3],
+  "tasks": {
+    "t15": {
+      "description": "15-class tier1 task excluding take and put; retained for continuity with completed experiments",
+      "label_map": "label_map_except_take_put.json",
+      "num_classes": 15,
+      "exclude_tier1": ["take", "put"]
+    },
+    "t17": {
+      "description": "Complete 17-class tier1 task including take and put",
+      "label_map": "label_map.json",
+      "num_classes": 17,
+      "exclude_tier1": []
+    }
+  },
+  "protocols": {
+    "subject_dev": {
+      "description": "Subject-disjoint development. N is reserved; hold out one of M/J/MR as validation and train on the other two.",
+      "allowed_subjects": ["M", "J", "MR"],
+      "has_validation": true,
+      "allows_test_phase": false
+    },
+    "final_refit": {
+      "description": "Locked final LOSO refit. Train on every non-test subject, use no validation set, and test epoch 50 only.",
+      "allowed_subjects": ["M", "J", "MR", "N"],
+      "has_validation": false,
+      "allows_test_phase": true
+    }
+  },
+  "loss_groups": {
+    "confirm15_min": ["s0", "rn3", "rl3", "h00_p1_k10", "h11_p1_k10"],
+    "augmentation_loss_core": ["s0", "h10_p1_k10", "rl3", "h11_p1_k10"],
+    "augmentation_controls": ["rn3", "rl3", "h00_p1_k10", "h11_p1_k10"],
+    "full17_entry_losses": ["d0", "s0"],
+    "all_locked": ["d0", "s0", "rn3", "rl3", "rn2", "rl2", "h00_p1_k10", "h10_p1_k10", "h01_p1_k10", "h11_p1_k10"]
+  },
+  "pairs": [
+    {"pair_id": "rel_p3_late_k3", "control": "rn3", "active": "rl3", "expected_parameter_differences": ["lambda_rel"]},
+    {"pair_id": "h2_joint_p1_k10", "control": "h00_p1_k10", "active": "h11_p1_k10", "expected_parameter_differences": ["lambda_proto", "lambda_rel"]},
+    {"pair_id": "rel_p2_late_k3", "control": "rn2", "active": "rl2", "expected_parameter_differences": ["lambda_rel"]},
+    {"pair_id": "h2_proto_only", "control": "h00_p1_k10", "active": "h10_p1_k10", "expected_parameter_differences": ["lambda_proto"]},
+    {"pair_id": "h2_rel_only", "control": "h00_p1_k10", "active": "h01_p1_k10", "expected_parameter_differences": ["lambda_rel"]},
+    {"pair_id": "h2_proto_added_to_rel", "control": "h01_p1_k10", "active": "h11_p1_k10", "expected_parameter_differences": ["lambda_proto"]},
+    {"pair_id": "h2_rel_added_to_proto", "control": "h10_p1_k10", "active": "h11_p1_k10", "expected_parameter_differences": ["lambda_rel"]}
+  ],
+  "loss_configs": {
+    "d0": {"full_id": "d0_k400_direct", "source_stage": "stage1", "source_id": "d0_k400_direct", "role": "K400 MViT-V2-S direct full fine-tuning; no contrastive pretraining", "overrides": {}},
+    "s0": {"full_id": "s0_sup", "source_stage": "stage1", "source_id": "s0_sup", "role": "SupLoss-only baseline", "overrides": {}},
+    "rn3": {"full_id": "rn3_k3_s125", "source_stage": "stage3a", "source_id": "rn3_k3_s125", "role": "P3 late-K3 Null-Rel control", "overrides": {}},
+    "rl3": {"full_id": "rl3_k3_s125", "source_stage": "stage3a", "source_id": "rl3_k3_s125", "role": "P3 late-K3 RelLoss candidate", "overrides": {}},
+    "rn2": {"full_id": "rn2_k3_s125", "source_stage": "stage3a", "source_id": "rn2_k3_s125", "role": "P2 late-K3 Null-Rel control", "overrides": {}},
+    "rl2": {"full_id": "rl2_k3_s125", "source_stage": "stage3a", "source_id": "rl2_k3_s125", "role": "P2 late-K3 RelLoss candidate", "overrides": {}},
+    "h00_p1_k10": {"full_id": "h00_p1_k10_strict_null", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "Strict joint Null control", "overrides": {"lambda_proto": 0.0, "lambda_rel": 0.0}},
+    "h10_p1_k10": {"full_id": "h10_p1_k10_proto_only", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "P1 ProtoLoss-only candidate", "overrides": {"lambda_proto": 1.0, "lambda_rel": 0.0}},
+    "h01_p1_k10": {"full_id": "h01_p1_k10_rel_only", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "P1 Top-K10 RelLoss-only ablation", "overrides": {"lambda_proto": 0.0, "lambda_rel": 1.0}},
+    "h11_p1_k10": {"full_id": "h11_p1_k10_proto_rel", "source_stage": "stage4", "source_id": "h2_emg_both_p1_k10", "role": "P1 ProtoLoss plus Top-K10 RelLoss candidate", "overrides": {"lambda_proto": 1.0, "lambda_rel": 1.0}}
+  },
+  "augmentation_groups": {
+    "baseline": ["a0"],
+    "augmentation_screen": ["a0", "a1_crop", "a2_photo", "a3_blur", "a4_combined", "a5_stress", "a6_no_flip"],
+    "moderate_candidates": ["a0", "a1_crop", "a2_photo", "a4_combined"]
+  },
+  "augmentations": {
+    "a0": {"description": "Current mild action-preserving baseline", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0, "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]},
+    "a1_crop": {"description": "Stronger spatial crop/scale variation only", "rrc_scale": [0.65, 1.0], "rrc_ratio": [0.8, 1.25], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0, "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]},
+    "a2_photo": {"description": "Stronger photometric invariance with mild geometry", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.8, "jitter_strength": [0.4, 0.4, 0.2, 0.08], "gray_p": 0.1, "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]},
+    "a3_blur": {"description": "Blur robustness only", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0, "blur_p": 0.5, "blur_kernel": 7, "blur_sigma": [0.1, 2.0]},
+    "a4_combined": {"description": "Moderate crop plus photometric plus blur", "rrc_scale": [0.7, 1.0], "rrc_ratio": [0.8, 1.25], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.5, "jitter_strength": [0.3, 0.3, 0.2, 0.05], "gray_p": 0.1, "blur_p": 0.2, "blur_kernel": 7, "blur_sigma": [0.1, 1.5]},
+    "a5_stress": {"description": "Strong stress test; not a default final candidate", "rrc_scale": [0.5, 1.0], "rrc_ratio": [0.75, 1.3333333333], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.8, "jitter_strength": [0.5, 0.5, 0.3, 0.1], "gray_p": 0.2, "blur_p": 0.5, "blur_kernel": 7, "blur_sigma": [0.1, 2.0]},
+    "a6_no_flip": {"description": "Baseline without horizontal flip; tests whether left/right direction is action-relevant", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.0, "vflip_p": 0.0, "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0, "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]}
+  },
+  "sampling_groups": {
+    "baseline": ["natural"],
+    "full17_entry": ["natural", "weighted_ft", "balanced_pre", "balanced_pre_weighted_ft"]
+  },
+  "sampling_profiles": {
+    "natural": {"description": "Natural class frequency in pretraining and fine-tuning", "pretrain_sampler": "none", "finetune_weighted_sampler": false},
+    "weighted_ft": {"description": "Natural pretraining; sqrt-inverse weighted sampler during fine-tuning", "pretrain_sampler": "none", "finetune_weighted_sampler": true, "finetune_sampler_mode": "sqrt_inv"},
+    "balanced_pre": {"description": "Class-balanced SupCon batches (16 classes x 2 samples) and natural fine-tuning", "pretrain_sampler": "balanced_batch", "balanced_classes_per_batch": 16, "balanced_samples_per_class": 2, "finetune_weighted_sampler": false},
+    "balanced_pre_weighted_ft": {"description": "Class-balanced SupCon batches plus sqrt-inverse weighted fine-tuning", "pretrain_sampler": "balanced_batch", "balanced_classes_per_batch": 16, "balanced_samples_per_class": 2, "finetune_weighted_sampler": true, "finetune_sampler_mode": "sqrt_inv"}
+  },
+  "presets": {
+    "confirm15_min_n_s1": {"task": "t15", "protocol": "final_refit", "losses": ["s0", "rn3", "rl3", "h00_p1_k10", "h11_p1_k10"], "augmentations": ["a0"], "samplings": ["natural"], "subjects": ["N"], "seeds": [1]},
+    "confirm15_final": {"task": "t15", "protocol": "final_refit", "losses": ["s0", "rn3", "rl3", "h00_p1_k10", "h11_p1_k10"], "augmentations": ["a0"], "samplings": ["natural"], "subjects": ["M", "J", "MR", "N"], "seeds": [2, 3]},
+    "full17_entry_dev": {"task": "t17", "protocol": "subject_dev", "losses": ["d0", "s0"], "augmentations": ["a0"], "samplings": ["natural", "weighted_ft", "balanced_pre", "balanced_pre_weighted_ft"], "subjects": ["M", "J", "MR"], "seeds": [1]},
+    "aug17_s0_screen": {"task": "t17", "protocol": "subject_dev", "losses": ["s0"], "augmentations": ["a0", "a1_crop", "a2_photo", "a3_blur", "a4_combined", "a5_stress", "a6_no_flip"], "samplings": ["natural"], "subjects": ["M", "J", "MR"], "seeds": [1]},
+    "aug17_cross_loss": {"task": "t17", "protocol": "subject_dev", "losses": ["s0", "h10_p1_k10", "rl3", "h11_p1_k10"], "augmentations": ["a0"], "samplings": ["natural"], "subjects": ["M", "J", "MR"], "seeds": [1]}
+  },
+  "training": {
+    "pretrain_epochs": 200,
+    "pretrain_save_interval": 50,
+    "prototype_diagnostic_interval": 10,
+    "finetune_epochs": 50,
+    "finetune_save_period": 25,
+    "finetune_lr_milestones": [25, 37],
+    "test_checkpoint_epoch": 50
+  }
+}

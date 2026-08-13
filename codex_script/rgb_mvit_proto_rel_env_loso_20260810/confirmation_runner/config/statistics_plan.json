@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "num_classes": 15,
+  "primary_metric": "balanced_accuracy",
+  "secondary_metrics": ["macro_f1", "accuracy"],
+  "bootstrap_iterations": 2000,
+  "bootstrap_confidence": 0.95,
+  "bootstrap_seed": 20260812,
+  "bootstrap_mode": "stratified_by_true_class",
+  "mcnemar": "exact_two_sided",
+  "minimum_reporting": {
+    "paired_folds_directionally_positive": 3,
+    "target_balanced_accuracy_gain_pp": 1.0,
+    "require_macro_f1_not_materially_worse": true
+  },
+  "prediction_metadata_fields": ["sample_name", "original_key", "person", "action", "segment", "tier1", "tier2", "tier3", "lighting", "pos", "camera_id"]
+}
