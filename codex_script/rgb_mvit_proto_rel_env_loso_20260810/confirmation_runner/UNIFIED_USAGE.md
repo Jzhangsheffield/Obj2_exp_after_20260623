@@ -226,7 +226,9 @@ epoch_050.pth
 last.pth
 ```
 
-`subject_dev`还会产生best验证权重，但统一统计不用它们。`final_refit`没有验证集，因此没有best权重。`evaluate`和`test`都强制读取`epoch_050.pth`。
+`subject_dev`还会产生best验证权重，但统一统计不用它们。`final_refit`没有验证集，因此没有best权重。新训练的`evaluate`和`test`优先读取`epoch_050.pth`。
+
+早期版本存在一个保存逻辑缩进问题：无验证集的`final_refit`只产生`last.pth`，没有周期文件。统一runner现在只在目录中恰好存在一个`last.pth`，并且权重元数据同时确认`epoch=50`和`args.epochs=50`时，才允许把它作为第50轮权重测试；不会读取未知轮数或未完成训练的`last.pth`。修复后的新训练仍会正常生成`epoch_025.pth`、`epoch_050.pth`和`last.pth`。
 
 ## 9. 重要防错规则
 
@@ -258,3 +260,18 @@ python confirmation_runner/run_unified.py validate --platform hpc
 ```
 
 验证通过后再重新运行`submit_unified.sh`。失败发生在任务清单生成之前，不会留下已提交的训练数组。
+
+## 11. 提交失败后复用已有manifest
+
+`--name`是manifest的唯一名称。第一次调用提交脚本时，manifest会在提交Slurm作业前生成；因此即使后续作业因为环境或路径问题失败，再次使用相同`--name`也会触发`FileExistsError`，以防意外覆盖原实验定义。
+
+修复作业脚本后，应通过`--manifest`显式复用第一次生成的CSV：
+
+```bash
+bash confirmation_runner/scripts/slurm/submit_unified.sh \
+  --manifest /mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_mvit_pr_unified_followup_20260813/manifests/u1a_confirm15_min.csv \
+  --stages pretrain,finetune,test,summarize \
+  --max-parallel 4
+```
+
+使用`--manifest`时不再重新生成清单，`--preset`、选择参数和`--name`均不需要填写。若确实要建立一套独立的新提交，则改用新的`--name`，例如`u1a_confirm15_min_retry1`。

@@ -20,7 +20,9 @@ def base(results: Path, kind: str, row: dict) -> Path:
 def complete(results: Path, row: dict, phase: str) -> bool:
     if phase == "pretrain":
         return row["pretrain"].lower() not in {"1", "true", "yes"} or (base(results, "pretrain", row) / "checkpoint_0200.pth").is_file()
-    if phase == "finetune": return len(list(base(results, "finetune", row).rglob("epoch_050.pth"))) == 1
+    if phase == "finetune":
+        root = base(results, "finetune", row)
+        return len(list(root.rglob("epoch_050.pth"))) == 1 or len(list(root.rglob("last.pth"))) == 1
     if phase == "evaluate": target = base(results, "dev_eval", row)
     elif phase == "test": target = base(results, "test", row)
     else: raise ValueError(phase)

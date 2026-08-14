@@ -188,17 +188,51 @@ class UnifiedRunner(ParentRunner):
         epoch = int(self.registry["training"]["test_checkpoint_epoch"])
         root = self.classifier_dir("unified", row["subject"], row)
         found = list(root.rglob(f"epoch_{epoch:03d}.pth"))
-        if len(found) != 1:
+        if len(found) == 1:
+            return found[0]
+        if len(found) > 1:
             raise FileNotFoundError(f"Expected one epoch_{epoch:03d}.pth, found {len(found)} under {root}")
-        return found[0]
+
+        # Older no-validation runs only wrote last.pth because periodic saving
+        # was incorrectly nested inside the validation branch. Reuse it only
+        # after proving from checkpoint metadata that it is exactly epoch 50.
+        last = list(root.rglob("last.pth"))
+        if len(last) != 1:
+            raise FileNotFoundError(
+                f"Expected one epoch_{epoch:03d}.pth, or one verified last.pth fallback; "
+                f"found epoch files=0 and last files={len(last)} under {root}"
+            )
+        try:
+            import torch
+            try:
+                payload = torch.load(last[0], map_location="cpu", weights_only=False)
+            except TypeError:  # compatibility with older PyTorch
+                payload = torch.load(last[0], map_location="cpu")
+        except Exception as exc:
+            raise RuntimeError(f"Could not inspect fallback checkpoint {last[0]}: {exc}") from exc
+        saved_epoch = payload.get("epoch") if isinstance(payload, dict) else None
+        saved_args = payload.get("args", {}) if isinstance(payload, dict) else {}
+        configured_epochs = saved_args.get("epochs") if isinstance(saved_args, dict) else None
+        if int(saved_epoch or -1) != epoch or (configured_epochs is not None and int(configured_epochs) != epoch):
+            raise RuntimeError(
+                f"Refusing last.pth fallback: expected epoch={epoch}, but checkpoint reports "
+                f"epoch={saved_epoch}, args.epochs={configured_epochs}: {last[0]}"
+            )
+        print(f"[Checkpoint fallback] verified epoch-{epoch} last.pth: {last[0]}")
+        return last[0]
 
     def finetune(self, stage: str, fold: str, row: dict) -> None:
         train_manifest, val_manifest, _ = self.manifests_for(row)
         out = self.classifier_dir(stage, fold, row)
         epoch = int(self.registry["training"]["test_checkpoint_epoch"])
-        if not self.args.dry_run and len(list(out.rglob(f"epoch_{epoch:03d}.pth"))) == 1:
-            print(f"[Skip] completed epoch-{epoch} classifier: {out}")
-            return
+        if not self.args.dry_run:
+            try:
+                completed_checkpoint = self.classifier_epoch_checkpoint(row)
+            except FileNotFoundError:
+                completed_checkpoint = None
+            if completed_checkpoint is not None:
+                print(f"[Skip] completed epoch-{epoch} classifier: {completed_checkpoint}")
+                return
         model = self.plan["model"]
         common = dict(self.plan["finetune_common"])
         training = self.registry["training"]
@@ -424,8 +458,11 @@ def completed(runner: UnifiedRunner, phase: str, row: dict) -> bool:
         target = runner.base_output("prototype_environment", row)
         return target.is_dir() and any(target.iterdir())
     if phase == "finetune":
-        epoch = runner.registry["training"]["test_checkpoint_epoch"]
-        return len(list(runner.classifier_dir("unified", row["subject"], row).rglob(f"epoch_{epoch:03d}.pth"))) == 1
+        try:
+            runner.classifier_epoch_checkpoint(row)
+            return True
+        except FileNotFoundError:
+            return False
     if phase in {"evaluate", "test"}:
         target = runner.evaluation_dir(phase, row)
         return (target / "test_results.csv").is_file() and (target / "predictions.csv").is_file()

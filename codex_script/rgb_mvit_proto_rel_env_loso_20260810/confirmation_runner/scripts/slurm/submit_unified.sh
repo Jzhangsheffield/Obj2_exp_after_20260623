@@ -4,14 +4,15 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$HERE/common_env.sh"
 
 PRESET=""; TASK=""; PROTOCOL=""; CONFIGS=""; AUGS=""; SAMPLINGS=""; SEEDS=""; SUBJECTS=""; STAGES=""
-NAME="unified_$(date +%Y%m%d_%H%M%S)"; MAX_PARALLEL=4; DRY_RUN=0
-usage() { echo "Usage: bash submit_unified.sh [--preset NAME] [--task t15|t17 --protocol subject_dev|final_refit --configs IDS --augmentations IDS --samplings IDS --seeds IDS --subjects IDS] --stages pretrain,finetune,evaluate|test,summarize [--name NAME] [--max-parallel N] [--dry-run]"; }
+NAME="unified_$(date +%Y%m%d_%H%M%S)"; MANIFEST=""; MAX_PARALLEL=4; DRY_RUN=0
+usage() { echo "Usage: bash submit_unified.sh [--manifest EXISTING.csv | --preset NAME | --task t15|t17 --protocol subject_dev|final_refit --configs IDS --augmentations IDS --samplings IDS --seeds IDS --subjects IDS] --stages pretrain,finetune,evaluate|test,summarize [--name NAME] [--max-parallel N] [--dry-run]"; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --preset) PRESET=$2; shift 2;; --task) TASK=$2; shift 2;; --protocol) PROTOCOL=$2; shift 2;;
     --configs) CONFIGS=$2; shift 2;; --augmentations) AUGS=$2; shift 2;; --samplings) SAMPLINGS=$2; shift 2;;
     --seeds) SEEDS=$2; shift 2;; --subjects) SUBJECTS=$2; shift 2;; --stages) STAGES=$2; shift 2;;
-    --name) NAME=$2; shift 2;; --max-parallel) MAX_PARALLEL=$2; shift 2;; --dry-run) DRY_RUN=1; shift;;
+    --name) NAME=$2; shift 2;; --manifest) MANIFEST=$2; shift 2;;
+    --max-parallel) MAX_PARALLEL=$2; shift 2;; --dry-run) DRY_RUN=1; shift;;
     -h|--help) usage; exit 0;; *) echo "Unknown option: $1"; usage; exit 2;;
   esac
 done
@@ -23,12 +24,18 @@ if [[ ! -s "$SPLIT_AUDIT" ]]; then
   exit 1
 fi
 
-BUILD=("$PYTHON_BIN" "$CONFIRM_ROOT/run_unified.py" build-manifest --name "$NAME" --platform hpc --project-root "$PROJECT_ROOT" --dataset-root "$DATASET_ROOT")
-[[ -n "$PRESET" ]] && BUILD+=(--preset "$PRESET"); [[ -n "$TASK" ]] && BUILD+=(--task "$TASK")
-[[ -n "$PROTOCOL" ]] && BUILD+=(--protocol "$PROTOCOL"); [[ -n "$CONFIGS" ]] && BUILD+=(--configs "$CONFIGS")
-[[ -n "$AUGS" ]] && BUILD+=(--augmentations "$AUGS"); [[ -n "$SAMPLINGS" ]] && BUILD+=(--samplings "$SAMPLINGS")
-[[ -n "$SEEDS" ]] && BUILD+=(--seeds "$SEEDS"); [[ -n "$SUBJECTS" ]] && BUILD+=(--subjects "$SUBJECTS")
-MANIFEST=$("${BUILD[@]}")
+if [[ -n "$MANIFEST" ]]; then
+  if [[ ! -s "$MANIFEST" ]]; then echo "ERROR: existing manifest is missing or empty: $MANIFEST"; exit 1; fi
+  MANIFEST=$(realpath "$MANIFEST")
+  echo "Reusing existing manifest; selection and --name arguments are not used."
+else
+  BUILD=("$PYTHON_BIN" "$CONFIRM_ROOT/run_unified.py" build-manifest --name "$NAME" --platform hpc --project-root "$PROJECT_ROOT" --dataset-root "$DATASET_ROOT")
+  [[ -n "$PRESET" ]] && BUILD+=(--preset "$PRESET"); [[ -n "$TASK" ]] && BUILD+=(--task "$TASK")
+  [[ -n "$PROTOCOL" ]] && BUILD+=(--protocol "$PROTOCOL"); [[ -n "$CONFIGS" ]] && BUILD+=(--configs "$CONFIGS")
+  [[ -n "$AUGS" ]] && BUILD+=(--augmentations "$AUGS"); [[ -n "$SAMPLINGS" ]] && BUILD+=(--samplings "$SAMPLINGS")
+  [[ -n "$SEEDS" ]] && BUILD+=(--seeds "$SEEDS"); [[ -n "$SUBJECTS" ]] && BUILD+=(--subjects "$SUBJECTS")
+  MANIFEST=$("${BUILD[@]}")
+fi
 COUNT=$("$PYTHON_BIN" "$CONFIRM_ROOT/run_unified.py" count-manifest --manifest "$MANIFEST")
 LAST=$((COUNT - 1)); ARRAY="0-${LAST}%${MAX_PARALLEL}"
 echo "Manifest: $MANIFEST"; echo "Runs: $COUNT"; echo "Stages: $STAGES"

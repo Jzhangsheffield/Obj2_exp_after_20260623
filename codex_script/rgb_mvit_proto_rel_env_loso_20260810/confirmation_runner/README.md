@@ -8,7 +8,7 @@
 results/rgb_mvit_pr_unified_followup_20260813
 ```
 
-最重要的协议约束：增强和Loss筛选必须使用`subject_dev + evaluate`；配置锁定后才允许使用`final_refit + test`，最终测试固定读取`epoch_050.pth`。
+最重要的协议约束：增强和Loss筛选必须使用`subject_dev + evaluate`；配置锁定后才允许使用`final_refit + test`。最终测试读取第50轮权重：新训练优先使用`epoch_050.pth`；对修复前仅保存`last.pth`的无验证集运行，只有在权重元数据确认其确为第50轮时才兼容读取。
 
 ---
 

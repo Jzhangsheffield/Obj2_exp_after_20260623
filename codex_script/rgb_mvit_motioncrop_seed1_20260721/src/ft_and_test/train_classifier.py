@@ -3504,6 +3504,25 @@ def run_one_training_experiment(
                     + "\n"
                 )
             else:
+                if args.save_period > 0 and ((epoch + 1) % args.save_period == 0):
+                    save_checkpoint(
+                        save_dir=run_dir,
+                        model=model,
+                        optimizer=optimizer,
+                        scaler_obj=scaler_obj,
+                        epoch=epoch+1,
+                        args=args,
+                        is_best_val=False,
+                        is_last=False,
+                        extra_info={
+                            **extra_info,
+                            "train_acc": train_acc,
+                            "train_loss": train_loss,
+                            "train_balanced_acc": train_metrics["balanced_acc"],
+                            "train_macro_f1": train_metrics["macro_f1"],
+                        },
+                    )
+
                 f.write(
                 f"[{epoch}] | {format_lr_dict(lr_dict)} | "
                 f"train loss: {train_loss:.4f}, "
