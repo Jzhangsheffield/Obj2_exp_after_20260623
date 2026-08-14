@@ -14,8 +14,9 @@ from pathlib import Path
 from common.config import PACKAGE_ROOT, SELECTION_PATH, append, load_plan, read_json, roots, select
 
 
-STATIC_STAGES = ("stage1", "stage2a", "stage2b", "stage3a", "stage3b", "stage4")
-ALL_STAGES = (*STATIC_STAGES, "stage5", "stage6", "stage7")
+SELECTION_STAGES = ("stage1", "stage2a", "stage2b", "stage3a", "stage3b", "stage4")
+STATIC_STAGES = (*SELECTION_STAGES, "stage8")
+ALL_STAGES = (*SELECTION_STAGES, "stage5", "stage6", "stage7", "stage8")
 
 
 class Runner:
@@ -41,7 +42,7 @@ class Runner:
 
     def static_catalog(self) -> dict[str, tuple[str, dict]]:
         catalog: dict[str, tuple[str, dict]] = {}
-        for stage in STATIC_STAGES:
+        for stage in SELECTION_STAGES:
             for row in self.plan["stages"][stage]:
                 if row["id"] in catalog:
                     raise ValueError(f"Duplicate experiment ID: {row['id']}")
@@ -299,6 +300,10 @@ class Runner:
         _, _, test_manifest = self.manifests(fold)
         model = self.plan["model"]
         out = self.results / "test" / f"fold_{fold}" / stage / row["id"]
+        result_csv = out / "test_results.csv"
+        if not self.args.dry_run and result_csv.is_file() and result_csv.stat().st_size > 0:
+            print(f"[Skip] completed outer test: {result_csv}")
+            return
         command: list[object] = [
             self.python, "-u", self.classifier_entry,
             "--repair-source", self.classifier_source, "--repair-src-root", self.classifier_src,
@@ -307,7 +312,7 @@ class Runner:
         ]
         values = {
             "--run_mode": "test", "--save_path": out, "--datamap_csv_path": out / "datamaps",
-            "--test_results_csv": out / "test_results.csv", "--dataset_root": self.dataset,
+            "--test_results_csv": result_csv, "--dataset_root": self.dataset,
             "--label_map_json": self.dataset / self.plan["manifests"]["label_map"], "--test_manifest": test_manifest,
             "--test_weight_paths": self.best_classifier(stage, fold, row) if not self.args.dry_run else self.classifier_dir(stage, fold, row) / "<run>" / "best_val_balanced.pth",
             "--tier_mode": model["tier_mode"], "--n_frames": model["n_frames"], "--use_modality": "rgb",

@@ -117,13 +117,24 @@
       {"index": 8, "id": "si3_late_k3", "description": "P3 IMU Proto+Rel epoch-50 start", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 1.0, "lambda_rel": 1.0, "proto_start": 50, "rel_start": 50, "preview_ema_momentum": 0.3, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "rel_lambda_schedule": "cosine"},
       {"index": 9, "id": "si2_early_k3", "description": "P2 IMU Proto+Rel epoch-5 start", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 2, "lambda_proto": 1.0, "lambda_rel": 1.0, "warmup_epochs": 5, "proto_start": 5, "rel_start": 5, "preview_ema_momentum": 0.3, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "rel_lambda_schedule": "cosine"},
       {"index": 10, "id": "si3_early_k3", "description": "P3 IMU Proto+Rel epoch-5 start", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_proto": 1.0, "lambda_rel": 1.0, "warmup_epochs": 5, "proto_start": 5, "rel_start": 5, "preview_ema_momentum": 0.3, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "rel_lambda_schedule": "cosine"}
+    ],
+    "stage8": [
+      {"index": 0, "id": "x8_d0_direct", "source_experiment": "d0_k400_direct", "description": "Four-subject exploratory Direct-FT baseline", "pretrain": false, "seed": 1},
+      {"index": 1, "id": "x8_s0_sup", "source_experiment": "s0_sup", "description": "Four-subject exploratory SupLoss-only baseline", "pretrain": true, "seed": 1, "ablation_mode": "contrastive_only", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"index": 2, "id": "x8_h00_p1_k10", "source_experiment": "h00_p1_k10", "description": "Strict P1 H2-path null: lambda_proto=0, lambda_rel=0", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0, "proto_start": 50, "rel_start": 50, "preview_ema_momentum": 0.5, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 10, "rel_lambda_schedule": "cosine"},
+      {"index": 3, "id": "x8_h10_p1_k10", "source_experiment": "h10_p1_k10", "description": "P1 H2-path Proto-only: lambda_proto=1, lambda_rel=0", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 1.0, "lambda_rel": 0.0, "proto_start": 50, "rel_start": 50, "preview_ema_momentum": 0.5, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 10, "rel_lambda_schedule": "cosine"},
+      {"index": 4, "id": "x8_h01_p1_k10", "source_experiment": "h01_p1_k10", "description": "P1 H2-path Rel-only: lambda_proto=0, lambda_rel=1", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 1.0, "proto_start": 50, "rel_start": 50, "preview_ema_momentum": 0.5, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 10, "rel_lambda_schedule": "cosine"},
+      {"index": 5, "id": "x8_h11_p1_k10", "source_experiment": "h11_p1_k10", "description": "P1 H2-path Proto+Rel: lambda_proto=1, lambda_rel=1", "seed": 1, "ablation_mode": "contrastive_proto_rel", "proto_positive_mode": "all", "num_prototypes": 1, "lambda_proto": 1.0, "lambda_rel": 1.0, "proto_start": 50, "rel_start": 50, "preview_ema_momentum": 0.5, "rel_same_weight": 1.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 10, "rel_lambda_schedule": "cosine"},
+      {"index": 6, "id": "x8_rn3_k3_s125", "source_experiment": "rn3_k3_s125", "description": "P3 matched Rel null retained to map MR/N subject reversal", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_rel": 0.0, "rel_start": 125, "preview_ema_momentum": 0.5, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "rel_lambda_schedule": "constant"},
+      {"index": 7, "id": "x8_rl3_k3_s125", "source_experiment": "rl3_k3_s125", "description": "P3 late diff-only Rel active retained to map MR/N subject reversal", "seed": 1, "ablation_mode": "contrastive_rel", "proto_positive_mode": "all", "num_prototypes": 3, "lambda_rel": 0.5, "rel_start": 125, "preview_ema_momentum": 0.5, "rel_same_weight": 0.0, "rel_diff_weight": 1.0, "rel_topk_diff_classes": 3, "rel_lambda_schedule": "constant"}
     ]
   },
   "stage_counts": {
     "stage1": 2, "stage2a": 11, "stage2b": 4, "stage3a": 6,
-    "stage3b": 8, "stage4": 11, "stage5": 6,
+    "stage3b": 8, "stage4": 11, "stage5": 6, "stage8": 8,
     "stage6_configurations": 6, "stage6_person_fold_runs": 24,
     "stage7_seeded_configurations": 4, "stage7_person_fold_runs": 16,
+    "stage8_exploratory_configurations": 8, "stage8_person_fold_runs": 32,
     "core_screen_excluding_conditional_stage2b_stage3b": 36,
     "full_screen_stage1_to_stage5": 48,
     "core_including_stage6_person_runs": 60,

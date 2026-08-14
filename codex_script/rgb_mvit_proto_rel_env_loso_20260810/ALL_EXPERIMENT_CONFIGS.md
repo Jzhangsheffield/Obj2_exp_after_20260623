@@ -1,6 +1,8 @@
 # 全部实验配置与逐项说明
 
-> 2026-08-13后续实验更新：15类最小确认、17类take/put任务、增强策略、采样策略和无验证50轮最终协议统一记录在[`confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md`](./confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md)。本文件下方内容描述原始Stage 1–7，不应直接用于新实验的运行参数。
+> 2026-08-14新增：Stage 8 四被试探索配置直接记录在本文件和 `config/experiment_plan.json`，不放入 `confirmation_runner`。详见 F 节。
+
+> 2026-08-13后续实验更新：15类最小确认、17类take/put任务、增强策略、采样策略和无验证50轮最终协议统一记录在[`confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md`](./confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md)。本文件 A–E 描述原始Stage 1–7；Stage 8 是为复用原 MR 协议而新增的明确例外。
 
 > 新增的跨对象/多seed锁定确认配置（包括修正后的H2严格Null和2×2消融）统一记录在 [`confirmation_runner/LOCKED_CONFIG_PARAMETER_REFERENCE.md`](./confirmation_runner/LOCKED_CONFIG_PARAMETER_REFERENCE.md)，机器配置位于`confirmation_runner/config/locked_config_registry.json`。
 
@@ -208,5 +210,59 @@ Stage 6 最佳设置必须同时报告四折 mean±std、每折结果和相对 S
 | 核心筛选 + Stage 6 | 60 |
 | 完整 Stage 1–6 | 72 |
 | 完整 Stage 1–7 | 88 |
+| Stage 8 四被试探索（单独计数） | 32 |
 
 权威机器可读配置以 `config/experiment_plan.json` 为准；动态入选结果以 `config/selection.json` 为准。
+
+## F. Stage 8 四被试探索配置（2026-08-14）
+
+### F1. 研究问题与统计定位
+
+本阶段用于回答两个问题：
+
+1. P1 的 Proto-only、Rel-only、Proto+Rel 在 M/J/MR/N 上是否呈现一致方向；
+2. P3 `rl3_k3_s125 - rn3_k3_s125` 在 MR 为正、N 为负的现象是否是普遍的被试异质性。
+
+它不是新的超参数网格，也不是独立最终测试。四折 outer-test 都会被查看，因此任何基于 Stage 8 结果产生的选择都必须在后续冻结配置、多 seed 协议中重新确认。
+
+### F2. 精确配置表
+
+所有配置均为 seed 1，沿用 A 节的 200 epoch 预训练、100 epoch 全参数微调、每折 20% 分组 inner-val，以及 `best_val_balanced.pth` 外测规则。
+
+| idx / ID | 来源/角色 | mode | P | λproto | λrel | proto/rel start | same/diff | Top-K | schedule / EMA |
+|---:|---|---|---:|---:|---:|---|---|---:|---|
+| 0 `x8_d0_direct` | `d0_k400_direct` | Direct FT | — | — | — | — | — | — | — |
+| 1 `x8_s0_sup` | `s0_sup` | contrastive_only | 1 | 0 | 0 | — | — | — | — |
+| 2 `x8_h00_p1_k10` | H2 strict null | contrastive_proto_rel | 1 | 0 | 0 | 50 / 50 | 1 / 1 | 10 | cosine / 0.5 |
+| 3 `x8_h10_p1_k10` | H2 Proto-only | contrastive_proto_rel | 1 | 1 | 0 | 50 / 50 | 1 / 1 | 10 | cosine / 0.5 |
+| 4 `x8_h01_p1_k10` | H2 Rel-only | contrastive_proto_rel | 1 | 0 | 1 | 50 / 50 | 1 / 1 | 10 | cosine / 0.5 |
+| 5 `x8_h11_p1_k10` | H2 Proto+Rel | contrastive_proto_rel | 1 | 1 | 1 | 50 / 50 | 1 / 1 | 10 | cosine / 0.5 |
+| 6 `x8_rn3_k3_s125` | `rn3_k3_s125` bridge null | contrastive_rel | 3 | 0 | 0 | — / 125 | 0 / 1 | 3 | constant / 0.5 |
+| 7 `x8_rl3_k3_s125` | `rl3_k3_s125` bridge active | contrastive_rel | 3 | 0 | 0.5 | — / 125 | 0 / 1 | 3 | constant / 0.5 |
+
+`x8_h00/h10/h01/h11` 除 λproto 和 λrel 外完全相同；这修正了旧 `hn1_null_p1` 使用 Top-K3、而 H2 active 使用 Top-K10 所造成的不严格对照。`x8_rn3/x8_rl3` 也只改变 λrel，专门用于四折配对比较。
+
+### F3. 为什么不全部设为 P=1
+
+P=1 适合做当前主线，因为它避免 P2/P3 同类 prototype 高度重合，并形成清楚的类中心约束；但 P=1 不再表示类内多 prototype。若把所有配置都设为 P=1，会删除触发本次实验的 P3 Rel 机制，无法解释 MR/N 的方向反转。
+
+因此本阶段：
+
+- 以 P1 严格 2×2 消融作为主体；
+- 暂停 P2 网格；
+- 只保留一组 P3 null/active 桥接对照。
+
+这不是断言“P2 永远无效”，而是基于当前证据降低其优先级。只有当 P3 配对在多数折稳定同向时，才值得另开匹配 schedule、start、Top-K 的 P1/P2/P3 专项比较。
+
+### F4. 运行规模与预设比较
+
+规模为 8 配置 × 4 留出人 = 32 个 fold-config pipeline。预设主要比较为：
+
+- `x8_h10_p1_k10 - x8_h00_p1_k10`：Proto 主效应；
+- `x8_h01_p1_k10 - x8_h00_p1_k10`：Rel 主效应；
+- `x8_h11_p1_k10 - x8_h00_p1_k10`：联合路径净效应；
+- `x8_h11_p1_k10 - x8_s0_sup`：相对实际主基线的增益；
+- `x8_rl3_k3_s125 - x8_rn3_k3_s125`：P3 Rel 净效应；
+- `x8_rl3_k3_s125 - x8_s0_sup`：P3 active 相对主基线。
+
+每项应报告四折逐折 BA、macro-F1、accuracy、四折 mean±sample std 和方向一致性。Stage 8 不使用 `config/selection.json`，权威配置就是本文件对应的 `config/experiment_plan.json` 中 `stages.stage8`。

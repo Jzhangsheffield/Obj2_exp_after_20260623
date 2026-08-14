@@ -1,6 +1,8 @@
 # RGB MViT-v2-S + ProtoLoss/RelLoss（旧版）环境感知 LOSO 实验包
 
-> 2026-08-13：后续未运行实验已经迁移到[`confirmation_runner/run_unified.py`](./confirmation_runner/run_unified.py)。新协议包括15/17类双任务、take/put、被试级开发验证、无验证最终重训练、50轮微调和对比学习增强筛选。请先阅读[`UNIFIED_EXPERIMENT_CONFIGS.md`](./confirmation_runner/UNIFIED_EXPERIMENT_CONFIGS.md)与[`UNIFIED_USAGE.md`](./confirmation_runner/UNIFIED_USAGE.md)。本目录原Stage 1–7仍保持不变，用于复现历史结果。
+> 2026-08-14：新增 **Stage 8 四被试探索性 LOSO**。本阶段因需要直接复用原 MR 筛选协议和旧版 runner，配置、Slurm、`.bat` 与说明均放在当前父目录，**不放入 `confirmation_runner`**。Stage 8 是对 MR/N 差异的被试异质性探索，不是无偏最终测试。
+
+> 2026-08-13：15/17类双任务、take/put、无验证最终重训练、50轮微调和增强筛选等统一确认协议仍位于[`confirmation_runner/run_unified.py`](./confirmation_runner/run_unified.py)。原Stage 1–7保持不变；Stage 8 是上述迁移说明的明确例外。
 
 > 2026-08-12新增：跨对象、多seed锁定确认实验、灵活提交与配对统计工具位于 [`confirmation_runner`](./confirmation_runner/README.md)。原Stage 1–7及历史输出保持不变。
 
@@ -54,6 +56,7 @@ rgb_mvit_proto_rel_env_loso_20260810/
 | Stage 5 | 入选 Proto × Rel 组合及 Null 对照 | 6 | 6 |
 | Stage 6 | 6 个候选做四人 LOSO 外层测试 | 6 | 24（6×4 人） |
 | Stage 7 | SupLoss 与最终胜者补 seed 2/3 | 4 个带 seed 配置 | 16（4×4 人） |
+| Stage 8 | MR/N 差异的四被试探索：P1 主线 + 一组 P3 桥接 | 8 | 32（8×4 人） |
 
 数量口径：
 
@@ -62,6 +65,7 @@ rgb_mvit_proto_rel_env_loso_20260810/
 - 核心方案加 Stage 6：36 + 24，共 **60 次**。
 - 完整 Stage 1–6：48 + 24，共 **72 次**。
 - 包含可选 Stage 7 的最完整方案：72 + 16，共 **88 次训练**。
+- Stage 8 单独计数，共 **32 个 fold-config pipeline**，不并入旧 Stage 1–7 的 88 次历史口径。
 
 这里“一次训练”表示一个完整 pipeline：需要预训练的配置会执行“对比预训练 → prototype/环境诊断 → 全参数微调”；Direct FT 不执行对比预训练。Stage 6/7 还会自动测试外层留出人。
 
@@ -136,7 +140,30 @@ sbatch scripts/slurm/11_summarize.slurm
 
 不要在所有阶段开始前就提交 Stage 5–7，因为它们会检查选择闸门，未准备好时主动终止，避免跑错配置。
 
-### 4.3 只跑一个实验或一个留出人
+### 4.3 Stage 8 四被试探索
+
+Stage 8 不依赖 `config/selection.json`，但要求 `01_prepare` 已生成四折划分和 `protocol_audit.json`。Stanage 推荐使用提交脚本，它会提交 32 项 GPU array，并在全部成功后自动汇总：
+
+```bash
+bash scripts/slurm/submit_stage8_loso4_explore.sh
+```
+
+也可只提交 array，不自动汇总：
+
+```bash
+sbatch scripts/slurm/13_stage8_loso4_explore.slurm
+```
+
+Windows 默认依次运行全部四折；也可传入一个留出人以分批运行：
+
+```bat
+scripts\windows\13_stage8_loso4_explore.bat
+scripts\windows\13_stage8_loso4_explore.bat MR
+```
+
+已存在非空 `test_results.csv` 的 fold-config 会自动跳过，因而中断后可直接重提。Stage 8 的机器配置位于 `config/experiment_plan.json`，所有输出仍写入 `results/rgb_mvit_pr_env_loso_20260810` 的 `stage8` 子目录。
+
+### 4.4 只跑一个实验或一个留出人
 
 Windows 示例：只跑 Stage 2A index 3、MR 为测试人，但筛选阶段只使用 MR 的 inner-val，不访问 outer-test：
 
@@ -150,7 +177,7 @@ scripts\windows\run_one.bat stage2a 3 MR
 python run.py pipeline --stage <stage> --index <index> --fold <M|J|MR|N|all> [--outer-test]
 ```
 
-只有最终 Stage 6/7 才应使用 `--outer-test`。查看实验表或仅打印命令：
+只有旧协议的最终 Stage 6/7，以及明确标记为探索性外测的 Stage 8，才应使用 `--outer-test`。查看实验表或仅打印命令：
 
 ```text
 python run.py list --stage stage2a
@@ -164,6 +191,7 @@ python run.py pipeline --stage stage2a --index 3 --fold MR --dry-run
 - MR 的 outer-test 在筛选时不用于选超参数。
 - Stage 6 对 M/J/MR/N 各留一人，共四折；此时报告的是四人 LOSO-CV，而不是“N 永久锁定测试集”。
 - Stage 7 只补 SupLoss 和 Stage 6 胜者的 seed 2/3，不重新搜索参数。
+- Stage 8 会查看四个 outer-test，因此只能用于刻画被试差异；若根据其结果选择方法，后续必须另做冻结配置、多 seed 的确认，不能把同一四折结果再次称为独立最终测试。
 
 ## 6. 选择闸门怎么填
 
@@ -228,3 +256,38 @@ scripts\windows\12_test_completed_screen_mr.bat
 Slurm 脚本会先检查30个最佳验证权重，并跳过已经存在非空 `test_results.csv` 的实验，因此作业中断后可直接重新提交继续测试。若需要强制重测某个实验，先移走该实验对应的 `test_results.csv`。
 
 本次一次性测试 30 个候选主要用于检查验证趋势能否迁移到 held-out MR。由于所有候选都被同时查看，不能再根据 MR 测试结果继续调参并把同一 MR 结果当作无偏最终性能；正式结论仍需冻结配置后做四人 LOSO/多 seed。
+
+## 10. Stage 8：四被试异质性探索（2026-08-14）
+
+### 10.1 为什么这样设计
+
+MR 上 `rl3_k3_s125` 相对严格配对的 `rn3_k3_s125` 呈正向改善，而 N 上方向反转，说明单一留出人的结论不足。把原 30 配置完整复制到四个人会形成 120 个 pipeline，并会在外层测试集上继续做大规模选择；计算成本和统计偏差都过高。因此 Stage 8 只保留能回答当前问题的 8 个配置：
+
+| idx / ID | P | 配置 | 主要问题 |
+|---:|---:|---|---|
+| 0 `x8_d0_direct` | — | K400 Direct FT | 每个被试上的强骨干下限 |
+| 1 `x8_s0_sup` | 1 | SupLoss-only | 所有旧损失的主基线 |
+| 2 `x8_h00_p1_k10` | 1 | λp=0，λr=0 | H2 路径严格 Null |
+| 3 `x8_h10_p1_k10` | 1 | λp=1，λr=0 | Proto-only 主效应 |
+| 4 `x8_h01_p1_k10` | 1 | λp=0，λr=1 | Rel-only 主效应 |
+| 5 `x8_h11_p1_k10` | 1 | λp=1，λr=1 | Proto×Rel 联合效果 |
+| 6 `x8_rn3_k3_s125` | 3 | λr=0，late diff-only 路径 | MR/N 反转的严格配对 Null |
+| 7 `x8_rl3_k3_s125` | 3 | λr=0.5，start125，Top-K3 | MR/N 反转的 active 配置 |
+
+P1 的四项使用完全相同的 H2 路径：`contrastive_proto_rel`、start=50、EMA=0.5、same+diff、Top-K10、cosine，只改变 λproto/λrel。这样可以用 2×2 因子设计区分 Proto、Rel 和组合效应。
+
+### 10.2 Prototype 数量决策
+
+**不建议把所有配置都改成 P=1。** P=1 时每类只有一个类中心，ProtoLoss 退化为类中心约束，也不存在可解释的类内多 prototype 结构；若完全删除 P2/P3，就无法判断原 MR/N 差异是否来自多 prototype 的 Rel 几何。
+
+本阶段采用折中方案：
+
+- P=1 作为主线，因为当前结果没有支持 P2/P3 对应光照子结构，且同类 prototype 高度重合；
+- 暂停 P=2，因为它未提供相对 P1/P3 的独特证据，继续成对铺网格的边际价值较低；
+- 仅保留一组 P=3 的严格 `rn3/rl3` 配对，因为它正是触发四被试探索的配置，删除它会使新实验无法回答 MR 与 N 为什么方向相反。
+
+若四折中 P3 active-null 差异大多接近零或方向不一致，后续可正式把多 prototype 分支降级；若多数折同向且幅度稳定，再设计匹配参数的 P1/P2/P3 专门实验，而不是恢复整个旧网格。
+
+### 10.3 解释边界
+
+Stage 8 使用 seed 1、每折训练人数据中的 20% inner-val 选择 `best_val_balanced.pth`，随后查看该折 outer-test。报告时应给出四折逐折结果、mean±std，以及以下配对差值：`h10-h00`、`h01-h00`、`h11-h00`、`h11-s0`、`rl3-rn3`、`rl3-s0`。由于四个外层结果都会被查看，本阶段适合描述“效应的被试依赖性”，不适合直接产生无偏的最终泛化声明。

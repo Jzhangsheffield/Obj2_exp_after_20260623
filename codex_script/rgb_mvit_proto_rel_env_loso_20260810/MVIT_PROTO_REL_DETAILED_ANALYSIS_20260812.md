@@ -1,8 +1,8 @@
 # K400 MViT-v2-S 上旧版 ProtoLoss / RelLoss 详细分析报告
 
-生成日期：2026-08-12  
-结果目录：`results/rgb_mvit_pr_env_loso_20260810`  
-分析范围：Stage 1、Stage 2A、Stage 3A、Stage 4；M/J/N 开发集上的 inner-val 筛选，以及完全留出的 MR outer-test（385 个样本）
+生成日期：2026-08-12；最近更新：2026-08-14
+结果目录：`results/rgb_mvit_pr_env_loso_20260810`、`results/rgb_mvit_pr_unified_followup_20260813`
+分析范围：Stage 1、Stage 2A、Stage 3A、Stage 4；M/J/N 开发集上的 inner-val 筛选、完全留出的 MR outer-test（385 个样本），以及统一协议 U1a 的 N final-refit 15 类最小确认（416 个样本）
 
 ## 1. 结论摘要
 
@@ -12,7 +12,7 @@
 
 2. **旧版 ProtoLoss 与 RelLoss 都确实参与了计算，并能改变表示几何；训练过程没有数值崩溃。**29 个预训练实验的日志均未发现 NaN/Inf，所有 P2/P3 配置在最终 epoch 均无 strict dead prototype；RelLoss 配置明显降低了最近异类 prototype 的余弦相似度。
 
-3. **但是，目前不能得出“ProtoLoss 或 RelLoss 已稳定提高分类性能”的最终结论。**当前只有一个随机种子和一个 held-out subject（MR），并同时比较了28个新增损失配置；inner-val 只有248个样本，MR test 也只有385个样本。最高值仍受到小类样本数与多重比较影响。
+3. **但是，目前不能得出“ProtoLoss 或 RelLoss 已稳定提高分类性能”的最终结论。**历史筛选同时比较了28个新增损失配置，只有 seed 1 和 MR 一折；新增 U1a 又只增加了 seed 1 的 N 一折，而且采用不同的 final-refit 固定 epoch 协议。两个受试者上的关键 RelLoss 效应方向相反，最高值仍受到小类样本数、多重比较与训练协议差异影响。
 
 4. **三种光照对应三个 prototype 的假设没有得到支持。**P3 assignment 与 `left/normal/right` 的最终平均 NMI 约为 0.05–0.10、ARI 多数低于 0.05，Null 配置也达到相近数值；P3 没有一致优于 P2。因此后续不应因为存在三种光照就固定采用 P=3。
 
@@ -22,19 +22,28 @@
 
 7. **外层测试否定了“hard P2 ProtoLoss 是当前最佳 Proto 设置”的初步判断。**`ph2_l010` 虽在 inner-val 相对 P2 Null 高 1.61 pp，但在 MR test 反而低 **3.38 pp BA、2.63 pp F1、2.34 pp accuracy**。本轮没有任何 Proto-only active 配置相对对应 Null 同时呈现可信、较大的三指标增益。
 
-8. **RelLoss 的新首选信号变为 `rl3_k3_s125`，而不是验证集最高的 `re2_k10_s50`。**`rl3` 在 MR test 达到全组最高的 **91.06% BA、88.78% macro-F1**；相对完全匹配的 P3 Null `rn3`，BA +5.11 pp、F1 +2.42 pp，但 accuracy 相同。这说明收益主要来自类别间召回更加平衡，而不是增加总正确数。
+8. **在历史 MR 筛选中，RelLoss 的首选信号曾变为 `rl3_k3_s125`，而不是验证集最高的 `re2_k10_s50`。**`rl3` 在 MR test 达到全组最高的 **91.06% BA、88.78% macro-F1**；相对完全匹配的 P3 Null `rn3`，BA +5.11 pp、F1 +2.42 pp，但 accuracy 相同。该历史单折信号随后在 U1a N 折反转，不能再作为当前首选结论。
 
 9. **验证排名对留人测试的预测能力较弱。**30 个配置的 validation–test BA Pearson 相关系数为 0.50，Spearman 排名相关仅 0.318；`re2` 从验证第1降至测试第15，`rl3` 从验证第11升至测试第1。不能继续把单个 inner-val 最高值当作最终候选。
 
+10. **U1a 15 类最小确认已按锁定协议完整完成 5/5 次。**5 个配置均使用 M/J/MR 的全部 1207 个 t15 样本训练，以 N 的 416 个样本测试；无 validation，微调固定 50 epoch，并只报告 epoch 50。清单审计为 `expected_missing=[]`，训练/测试 split 哈希在5个配置间一致。
+
+11. **`h11_p1_k10` 对严格联合 Null `h00_p1_k10` 的 N 折增益为正，但相对普通 SupLoss 仅近似持平。**`h11-h00` 的 BA/F1/accuracy 为 **+2.74/+2.73/+2.16 pp**（+9 个正确样本）；但 `h11-s0` 只有 **+0.13/+0.99/+0.72 pp**（+3 个正确样本）。这支持“联合损失改变了训练结果”，但不支持“已经带来有实际幅度的稳定增益”。
+
+12. **MR 上的 `rl3` 强信号没有在 N 上复现，且方向反转。**N 折中 `rl3-rn3` 的 BA/F1/accuracy 为 **−2.53/−2.82/−0.72 pp**（少3个正确样本）；相对 `s0` 为 **−4.04/−4.16/−2.16 pp**。因此不能再把 P3 late-K3 RelLoss 写成当前首选性能候选，只能保留为会显著改变 prototype 几何、但跨人效应不稳定的机制候选。
+
+13. **N 名义上是 t15，但测试集中没有 `close`。**所有 overall accuracy 使用416个样本，BA和macro-F1只在实际出现的14类上计算；自动汇总中的“±0.00”来自每配置仅1次运行，不代表零方差或稳定性。
+
+14. **逐样本配对检验没有为正向增益提供显著证据。**`h11-h00` 的 discordant correct 为21比12，exact McNemar `p=0.163`；`h11-s0` 为18比15，`p=0.728`。`rl3-rn3` 为17比20，`p=0.743`。10,000次按真实类别分层的 paired bootstrap 中，前三组比较的 BA/F1/accuracy 95%区间均跨0；`rl3-s0` 的 BA/F1 区间则完全低于0。该检验只反映固定 N 测试样本上的预测差异，不包含训练随机性或受试者方差。
+
 ### 1.2 更新后的候选判断
 
-- **Proto-only：当前没有胜者。**若后续必须保留一个机制对照，P2 Null `pn2_soft_null` 本身 test BA 87.93%，反而高于所有 Proto-only active；这说明 prototype 状态路径或训练随机性可能有用，但现有 ProtoLoss 梯度没有提供额外收益。
-- **Rel-only 主候选：`rl3_k3_s125`。**P=3、diff-only、Top-K3、λrel=0.5、epoch 125 启动、constant、EMA=0.5；它同时有 exact P3 Null，对 BA/F1 的外层增益最清晰。
-- **Rel-only 辅助候选：`rl2_k3_s125`。**test accuracy 88.31%（全组并列最高）、BA 88.88%、F1 88.55%；相对 P2 Null 的 BA −0.14 pp、F1 +1.81 pp、accuracy +5.97 pp，说明它偏向总正确率而不是类别均衡。
-- **Proto+Rel 候选：`h2_emg_both_p1_k10`。**相对 P1 Null 在 test 上 BA +5.23 pp、F1 +4.24 pp、accuracy +4.94 pp，是三项同时改善最明显的组合；但仍只有一个 seed，而且 P1 ProtoLoss/RelLoss 的记录量级都很小。
+- **Proto-only：当前没有胜者。**若后续必须保留一个机制对照，P2 Null `pn2_soft_null` 本身 MR test BA 87.93%，反而高于所有 Proto-only active；这说明 prototype 状态路径或训练随机性可能有用，但现有 ProtoLoss 梯度没有提供额外收益。
+- **Rel-only：`rl3_k3_s125` 从“主性能候选”降级为“跨人异质性/机制候选”。**它在 MR 上相对 exact `rn3` 为 BA/F1 +5.11/+2.42 pp，但在 N 上变为 −2.53/−2.82 pp，且两个受试者都只有 seed 1。`rl2` 尚未进入本次最小确认，其 MR accuracy 信号仍未复现。
+- **Proto+Rel：`h11_p1_k10`（原 `h2_emg_both_p1_k10`）是目前唯一在 N 上同时超过 exact Null 与 `s0` 的 active 配置，但对 `s0` 的幅度很小。**N 上相对严格、完全匹配的 Top-K10 Null `h00_p1_k10` 三项均提高；相对 `s0` 仅 BA +0.13 pp、F1 +0.99 pp、accuracy +0.72 pp。它是弱确认信号，不是已确认胜者。
 - **不再优先：`ph2_l010` 与 `re2_k10_s50`。**两者验证表现很好，但 outer-test 没有支持其相对 Null 的优势。
 
-这些仍是一个受试者、一个 seed 下的候选，不是项目最终最佳参数。由于本次同时查看了 30 个 MR 测试结果，MR 从现在起已不能继续作为无偏调参集。
+当前证据来自 MR 与 N 两个不同受试者，但每个比较仍只有 seed 1，而且两折的训练协议不同（历史 MR 使用 inner-val 最佳权重，U1a N 使用 final-refit 固定 epoch 50），不能直接求两折均值。MR 已在30配置筛选中被使用，N 也已在 U1a 中被查看；二者都不能再被描述为后续调参的全新独立测试集。
 
 ## 2. 数据与结果完整性
 
@@ -46,16 +55,17 @@
 | Stage 2A | 11 | 11 | 完成 |
 | Stage 3A | 6 | 6 | 完成 |
 | Stage 4 | 11 | 11 | 完成 |
-| 合计 | 30 | 30 | 核心筛选完成 |
+| 历史筛选合计 | 30 | 30 | 核心筛选完成 |
+| U1a t15 final-refit N/s1 | 5 | 5 | 最小确认完成 |
 
 随后已对上述30个最佳验证权重全部完成 fold_MR outer-test，测试结果完整度为30/30。
 
-除 Direct FT 外的 29 个配置均有 200 epoch 对比预训练日志和最终权重。当前尚未运行 Stage 2B、3B、5、6、7，因此没有：
+除 Direct FT 外的历史29个配置均有200 epoch对比预训练日志和最终权重；U1a 的5个配置也均有200 epoch预训练日志、epoch 200预训练权重、50 epoch无验证微调结果和固定 epoch 50测试指标。当前尚未运行 Stage 2B、3B、5、6、7，也尚未完成 U1b，因此没有：
 
 - λproto/λrel 局部加密结果；
 - Proto+Rel 入选组合的正式 Stage 5 结果；
-- M/J/MR/N 完整四人 LOSO 外层测试（当前仅有 MR 一折）；
-- seed 2/3 稳定性确认。
+- 使用同一 final-refit 固定 epoch 协议的 M/J/MR/N 完整四人 LOSO；
+- U1a 候选的跨 seed 稳定性确认。
 
 ### 2.2 文件完整性与目录异常
 
@@ -64,10 +74,12 @@
 - 共 139 个完整预训练 checkpoint，约 72.49 GB；整个结果目录约 119.27 GB。多出的 checkpoint 主要来自 RelLoss 启动边界保存。
 - 下载/解压后，`prototype_diagnostics` 和一部分 datamap 被嵌套到 `pretrain/fold_MR/stage2a/rgb_mvit_pr_env_loso_20260810/...` 下。诊断内容本身完整，本次分析用递归定位处理；但未来汇总前建议修正下载结构，避免标准工具找不到文件。
 - 下载后的原 `summary` 仍显示0个测试，是旧版汇总没有读取实际 `test_results.csv`。本次已用增强后的汇总程序重新生成30项测试排名；详细分析表位于 `results/rgb_mvit_pr_env_loso_20260810/analysis_20260812`。
+- U1a 的 `analysis_unified/analysis_audit.json` 报告5次运行、无预期缺失；`manifests/u1a_confirm15_min.meta.json` 的清单哈希为 `06d6f457...0279f0`。5个 `last_test_metrics.json` 均包含 overall、逐类指标和混淆矩阵。
+- U1a 每个配置均有416行 `predictions.csv` 和 `last_per_sample_test.csv`；5份预测按 `original_key` 一一对齐，真实标签完全一致。因此可以执行 paired bootstrap 与 exact McNemar。当前自动 `UNIFIED_STATISTICAL_REPORT.md` 尚未展示这些配对统计，本报告已从逐样本文件补算。
 
 ## 3. 下游微调结果
 
-所有实验均采用相同的 100 epoch 全参数微调、batch size 32、backbone LR 6e-5、head LR 2e-3，并按最佳 inner-val balanced accuracy 选择权重。
+以下第3.1–3.7节的历史筛选实验均采用相同的100 epoch全参数微调、batch size 32、backbone LR 6e-5、head LR 2e-3，并按最佳 inner-val BA 选择权重；第3.8节 U1a 则采用新的50 epoch final-refit固定权重协议，不能与历史最佳权重结果混作同一统计总体。
 
 ### 3.1 总体排名
 
@@ -244,13 +256,107 @@ inner-val 来源仍是训练人员 M/J/N，而 outer-test 是新人员 MR；低�
 
 本次是30个配置第一次接触MR，单个预先指定模型的MR结果原本是无偏测试；但现在同时查看30个结果并选择最高者，会产生 winner's curse。特别是 `close` 只有4个样本，一个样本就改变25 pp recall。`adjust/cap/press/tear` 也只有10–18个样本，BA很容易因少数预测翻转而变化。
 
-因此最严谨的表述是：`rl3` 和 `h2` 在 held-out MR 上出现强候选信号；并非已经证明它们优于 SupLoss。由于逐样本预测文件未下载，目前也无法进行 paired bootstrap/McNemar；即使补做统计，单一受试者仍不能替代多折 LOSO。
+因此，仅就这一轮历史 MR 筛选，最严谨的表述是：`rl3` 和 `h2` 在 held-out MR 上出现强候选信号；并非已经证明它们优于 SupLoss。由于逐样本预测文件未下载，目前也无法进行 paired bootstrap/McNemar；即使补做统计，单一受试者仍不能替代多折 LOSO。后续 U1a N 结果见第3.8节，其中 `rl3` 信号已反转。
+
+### 3.8 U1a：N final-refit 15 类最小确认（2026-08-14 更新）
+
+#### 3.8.1 协议与完整性
+
+- 任务：`t15`，排除 `take/put`，K400 MViT-v2-S，`a0` mild augmentation，natural sampling；
+- 测试对象：N；训练对象：M/J/MR；训练1207个样本，测试416个样本，sample overlap=0；
+- 预训练：200 epoch；微调：50 epoch、无 validation、milestones `[25,37]`；统一汇总固定读取 epoch 50；
+- 配置：`s0`、`rn3`、`rl3`、`h00_p1_k10`、`h11_p1_k10`，均为 seed 1；
+- 完整性：5/5次运行齐全，`expected_missing=[]`；所有配置使用相同的 train/test manifest 哈希；
+- 类别注意：N 没有 `close` 样本，因此 `num_present_classes=14`，BA/macro-F1只对其余14类求宏平均。
+
+这里的 `h00_p1_k10` 是以 `h11` 为模板、仅把 `lambda_proto/lambda_rel` 设为0的 strict joint Null；它使用 Top-K10，不能用历史 Top-K3 `hn1_null_p1` 替代。`h11_p1_k10` 等价于历史 `h2_emg_both_p1_k10`，但本轮采用全量非测试人员重训练和固定 epoch 50，不是历史最佳验证权重的重复测试。
+
+#### 3.8.2 总体结果
+
+| 排名 | 配置 | N test BA | Macro-F1 | Accuracy | 正确数 | 说明 |
+|---:|---|---:|---:|---:|---:|---|
+| 1 | `h11_p1_k10` | **84.30%** | **84.60%** | **84.38%** | 351/416 | P1 Proto+Rel active |
+| 2 | `s0` | 84.17% | 83.61% | 83.65% | 348/416 | SupLoss-only 主基线 |
+| 3 | `rn3` | 82.66% | 82.27% | 82.21% | 342/416 | P3 late-K3 exact Null |
+| 4 | `h00_p1_k10` | 81.55% | 81.87% | 82.21% | 342/416 | P1 Top-K10 strict joint Null |
+| 5 | `rl3` | 80.12% | 79.45% | 81.49% | 339/416 | P3 late-K3 Rel active |
+
+自动汇总把每项写为“均值 ± 0.00”，但每个配置只有1个 subject × 1个 seed；这里直接报告单次点估计，不把0.00解释为标准差证据。
+
+#### 3.8.3 Active–Null 与 SupLoss 双重比较
+
+| 比较 | ΔBA | ΔF1 | ΔAccuracy | 正确数变化 | 判断 |
+|---|---:|---:|---:|---:|---|
+| `h11 - h00` | **+2.74 pp** | **+2.73 pp** | **+2.16 pp** | +9 | 联合损失相对严格同路径 Null 为正 |
+| `h11 - s0` | +0.13 pp | +0.99 pp | +0.72 pp | +3 | 相对主基线近似持平，仅弱正信号 |
+| `h00 - s0` | −2.62 pp | −1.74 pp | −1.44 pp | −6 | strict joint Null 路径本身弱于 `s0` |
+| `rl3 - rn3` | **−2.53 pp** | **−2.82 pp** | **−0.72 pp** | −3 | Rel active 未超过 exact Null，MR 信号反转 |
+| `rn3 - s0` | −1.51 pp | −1.34 pp | −1.44 pp | −6 | P3 Null 路径弱于 `s0` |
+| `rl3 - s0` | −4.04 pp | −4.16 pp | −2.16 pp | −9 | Rel active 明显低于主基线 |
+
+双重比较很重要。`h11` 超过 `h00` 说明 active objective 并非完全无效，但 `h00` 自身比 `s0` 低6个正确样本；`h11` 的大部分 Active–Null 增益是在补回 strict-Null 路径的退化，最终只比 `s0` 多3个正确样本。相反，`rl3` 既没有超过 `rn3`，也没有超过 `s0`。
+
+#### 3.8.4 逐类变化
+
+`h11-h00` 的 +9 个净正确样本主要来自：`insert` +8、`cap` +2、`tear` +2、`adjust` +1、`press` +1、`pull_out` +1；代价是 `wrap` −3、`label` −2、`cut` −1。由于这些变化相抵，不能只挑正向小类报告。
+
+相对更重要的主基线 `s0`，`h11` 的变化明显收缩：`insert` +8、`cap` +2，但 `label` −3、`pull_out` −2、`wrap` −1、`cut` −1，净增仅3个样本。对应 recall 变化为 `cap` +11.11 pp、`insert` +9.09 pp、`label` −8.11 pp、`pull_out` −5.13 pp、`wrap` −2.86 pp、`cut` −2.33 pp。
+
+`rl3-rn3` 的负向变化主要来自 `adjust` −2、`tear` −2、`insert` −2、`press` −1、`remove` −1；虽在 `label` +3、`cap` +1、`pull_out` +1，但净值仍为 −3。MR 上 `rl3` 曾改善 `adjust/press/tear/close`，而 N 上其中前三类全部下降，说明 RelLoss 的类间重分配具有明显 subject dependence。
+
+#### 3.8.5 光照分层结果
+
+N 测试集的三种光照数量接近平衡：left 137、normal 141、right 138；每个光照子集都覆盖相同的14个实际类别。分层指标如下：
+
+| 配置 | Left BA/F1/Acc | Normal BA/F1/Acc | Right BA/F1/Acc |
+|---|---:|---:|---:|
+| `s0` | 81.97/81.01/78.83 | 80.27/79.39/82.27 | **90.34/90.00/89.86** |
+| `rn3` | 83.00/81.63/80.29 | 80.92/80.40/82.98 | 83.97/84.24/83.33 |
+| `rl3` | 81.27/80.34/78.83 | **70.93/68.82/78.01** | 88.13/86.57/87.68 |
+| `h00_p1_k10` | 81.03/81.53/78.83 | 80.33/80.24/82.98 | 83.92/83.72/84.78 |
+| `h11_p1_k10` | **85.23/84.75/83.94** | 78.91/80.31/82.27 | 89.08/88.28/86.96 |
+
+`h11-h00` 在 left 和 right 上分别为 BA +4.21/+5.16 pp，但 normal 为 −1.42 pp；相对 `s0`，`h11` 只在 left 明显提高（BA +3.26、accuracy +5.11 pp），normal BA −1.37 pp，right BA/accuracy −1.26/−2.90 pp。它不是跨光照一致改善。
+
+`rl3-rn3` 的总体负值主要由 normal 子集驱动：normal BA/F1/accuracy **−9.99/−11.58/−4.96 pp**；right 反而 +4.17/+2.33/+4.35 pp，left 略降。相对 `s0`，`rl3` 在三种光照的 BA 均未提高。由此可见，RelLoss 的错误重分配不仅依赖 subject，也依赖 lighting；现有结果不支持更强的光照不变性。
+
+#### 3.8.6 预训练稳定性与 prototype 诊断
+
+5个配置各有400条 debug 记录，均未出现 non-finite。epoch 200 的关键诊断如下：
+
+| 配置 | Active prototypes | Near-dead | Assignment entropy | 同类 prototype cos | 最近异类 cos | Lighting NMI |
+|---|---:|---:|---:|---:|---:|---:|
+| `h00_p1_k10` | 15 | 0 | 1.000 | 不适用（P1） | 0.5185 | 0.0000 |
+| `h11_p1_k10` | 15 | 0 | 1.000 | 不适用（P1） | **0.4140** | 0.0000 |
+| `rn3` | 45 | 5 | 0.8560 | 0.9942 | 0.5528 | 0.0433 |
+| `rl3` | 45 | 3 | 0.8817 | 0.9943 | **0.4801** | 0.0656 |
+
+两组 active 都显著降低最近异类 prototype 相似度：`h11-h00` 为 −0.1045，`rl3-rn3` 为 −0.0727。可是只有 `h11` 的下游结果相对 Null 为正，`rl3` 反而更差，再次证明“prototype 分得更开”不是分类性能的充分条件。P3 的同类 prototype 仍以约0.994的余弦相似度高度重合；Lighting NMI/ARI 仍很低（`rl3` ARI 0.0199，`rn3` 0.0031），没有形成三光照语义。
+
+新增损失的数值量级仍很小。最后一条 debug 记录中，`h11` 的加权 Proto+Rel 项合计约0.00536，而 SupLoss 为4.531；`rl3` 的加权 Rel 项约0.00059，而 SupLoss 为4.532。损失值占比不能代替梯度占比，但这些量级继续支持记录独立梯度范数与梯度夹角的必要性。
+
+#### 3.8.7 统计解释
+
+5份 `predictions.csv` 均有416个唯一 `original_key`，并能完全一一对齐。以下 paired bootstrap 使用固定随机种子20260814，重复10,000次；为避免少数类在重采样中消失，按14个实际出现的真实类别分别有放回采样，并保持原类别support。区间是未经多重比较校正的2.5%–97.5% percentile interval。McNemar 使用同一样本上“active正确/control错误”与“active错误/control正确”的 discordant counts 做双侧 exact binomial 检验。
+
+| 比较 | ΔBA 95% CI (pp) | ΔF1 95% CI (pp) | ΔAcc 95% CI (pp) | Discordant active:control | Exact McNemar p |
+|---|---:|---:|---:|---:|---:|
+| `h11 - h00` | [−0.40, 6.19] | [−0.37, 6.46] | [−0.48, 4.81] | 21:12 | 0.163 |
+| `h11 - s0` | [−3.29, 3.53] | [−2.74, 4.71] | [−1.92, 3.37] | 18:15 | 0.728 |
+| `rl3 - rn3` | [−6.45, 1.11] | [−7.10, 0.92] | [−3.61, 2.16] | 17:20 | 0.743 |
+| `rl3 - s0` | **[−7.76, −0.58]** | **[−8.36, −0.62]** | [−4.81, 0.48] | 12:21 | 0.163 |
+
+`h11-h00` 的点估计为正，但三个区间都跨0，McNemar也未达到常用显著性阈值；相对 `s0` 的证据更弱。`rl3-rn3` 的负点估计同样不显著，但 `rl3` 相对 `s0` 的类别平衡指标 bootstrap 区间为负，支持“至少在固定 N/s1 模型上没有优势”，而不是支持 RelLoss。
+
+这些区间只量化测试样本重采样误差。它们没有重训模型，不能覆盖 seed、训练轨迹或跨 subject 变化。特别是 N 的 `adjust` 仅8个样本，一个样本就改变12.5 pp recall；`cap/press/tear` 也只有12–18个样本。因此即使某个条件区间不跨0，也不能替代多 seed、多折 LOSO。
+
+因此 U1a 的严格结论是：**管线和锁定评估协议运行正常；`h11` 保留弱正信号，`rl3` 的 MR 优势没有跨到 N。没有任何旧版损失在本轮表现出足以宣称稳定优于 SupLoss 的幅度。**
 
 ## 4. 对比预训练损失分析
 
 ### 4.1 训练稳定性
 
-- 29 个预训练日志中没有发现 NaN/Inf。
+- 历史29个预训练日志和 U1a 新增5个日志中均没有发现 NaN/Inf；U1a 每配置400条 debug 记录也均为 finite。
 - 最终 queue 的 1088 个槽位均有效；每个 anchor 的 queue 同类正样本均值通常约 100，但随类别频率变化很大。
 - 最终 SupLoss 均约为 4.56–4.59，各配置相近；新增损失没有引起主损失爆炸。
 - batch size 32、queue 1088、LR 6e-5 在这些实验中数值稳定。
@@ -356,9 +462,11 @@ P3 Null `rn3` 为 0.5292：
 2. 加 early stopping（patience 15–20），最大 75 epoch；
 3. 最终结论以四折 LOSO mean±std 和多 seed 为准，不再根据外层测试回调超参数。
 
+U1a 已落实更严格的固定 epoch 50做法，因此消除了“每配置从验证曲线挑峰值”的偏差；但5个模型的最终训练 BA 仍为99.90%–100%，固定 epoch 只统一了评估规则，并没有消除训练集饱和或单 seed 方差。
+
 ## 7. ProtoLoss 是否发挥作用
 
-更新后的综合判断：**ProtoLoss 正常执行，但 MR 外层测试不支持旧版 ProtoLoss 带来额外泛化收益。**
+更新后的综合判断：**ProtoLoss 正常执行，但历史 MR 外层测试和新增 N final-refit 都没有提供可单独归因于旧版 ProtoLoss 的泛化证据。**
 
 支持“机制在工作”的证据：
 
@@ -374,12 +482,13 @@ P3 Null `rn3` 为 0.5292：
 - 同类 prototype 几乎重合，没有形成有意义的多中心结构；
 - P3 与光照关系很弱，且 P3 没有一致优于 P2；
 - P2 Null 自身显著超过 SupLoss，说明训练路径/随机轨迹影响很大，active 必须超过强 Null 才能归因给损失。
+- U1a 的 `h11` 同时启用了 ProtoLoss 与 RelLoss；虽然它在 N 上超过 strict joint Null `h00`，但没有运行 `h10`（Proto-only）与 `h01`（Rel-only），因此不能把该增益拆分或归因给 ProtoLoss。
 
 因此，就当前旧版定义而言，应把 ProtoLoss 结论写成“未获得支持”，而不是“弱有效”。这不否定 prototype 主思路，但说明需要先解决同类 prototype 重合、assignment 语义和梯度目标问题。
 
 ## 8. RelLoss 是否发挥作用
 
-更新后的综合判断：**RelLoss 明显改变了 prototype 几何，并在 held-out MR 上出现了比 ProtoLoss 更强的泛化信号，但尚未完成跨人/多 seed 证明。**
+更新后的综合判断：**RelLoss 明显改变 prototype 几何，但其分类收益具有强 subject dependence；MR 上的正信号已在 N 上反转，当前不支持稳定泛化增益。**
 
 支持 RelLoss 的证据：
 
@@ -388,6 +497,7 @@ P3 Null `rn3` 为 0.5292：
 - `rl3` 达到全组最高 test BA/F1，而且它并不是 inner-val 第一名，降低了“只复现验证尖峰”的可能；
 - exact P2 `rl2` 相对 `rn2` 虽 BA −0.14 pp，但 F1 +1.81 pp、accuracy +5.97 pp；P2/P3 都显示 Rel 会改变错误在类别之间的分配；
 - P1 Rel-only `h1` 在 test 上相对 P1 Null 的 BA +2.43 pp，与 inner-val 的负向结果不同。
+- U1a 中 `h11` 相对完全匹配的 joint Null `h00` 在 N 上 BA/F1/accuracy +2.74/+2.73/+2.16 pp，说明包含 RelLoss 的联合目标仍可能对部分受试者有效；但该比较不能分离 Proto 与 Rel。
 
 仍需谨慎的证据：
 
@@ -395,25 +505,30 @@ P3 Null `rn3` 为 0.5292：
 - `re2` 验证第1却测试第15，early K10 P2 并不稳定；
 - RelLoss 的加权量长期只有 SupLoss 的约 0.02%–0.09%，其效果可能高度依赖训练轨迹；
 - 几何分离程度与分类性能不单调；
-- 只有一个 outer subject 和一个 seed，同时比较30个模型存在多重比较偏差。
+- U1a N 折 `rl3-rn3` 为 BA/F1/accuracy −2.53/−2.82/−0.72 pp，和 MR 折的 +5.11/+2.42/0.00 pp 方向相反；
+- N 折 `rl3` 相对 `s0` 为 BA/F1/accuracy −4.04/−4.16/−2.16 pp；
+- MR 与 N 都只有 seed 1，而且采用不同 checkpoint 选择协议，尚不能估计跨 seed 方差或用两个点做可靠总体效应估计。
 
-因此当前最合理的表述是：**P3 late-K3 RelLoss 是最值得进一步确认的旧版损失候选；它在 MR 上改善类别均衡，但还不能称为稳定提高整体识别性能。**
+因此当前最合理的表述是：**P3 late-K3 RelLoss 是一个已确认会改变类间几何、但分类效果跨人反向的机制候选，不再是优先性能候选。**若继续研究它，目的应是解释 subject dependence 或获得预注册的多折效应估计，而不是复现 MR 的单点最高值。
 
-## 9. 未来最优先的确认实验（本轮暂不执行）
+## 9. 确认实验进展与下一步
 
-外层测试改变了候选顺序。若以后继续，建议只补一个小而严格的因果确认组，所有配置用 seed 2、3，并重新完成预训练和微调：
+原建议中的最小因果确认已经以统一 U1a 协议执行了一部分：
 
-| 配置 | 目的 |
-|---|---|
-| `S0` SupLoss-only | 同 seed 主基线 |
-| `rn3_k3_s125` | P3 late-K3 exact Null |
-| `rl3_k3_s125` | 复现 test BA/F1 的主要 Rel 信号 |
-| `hn1_null_p1` | P1 Proto+Rel 路径 Null |
-| `h2_emg_both_p1_k10` | 复现三指标共同改善的组合信号 |
-| `pn2_soft_null` | 判断强 P2 Null 是否可复现，量化纯训练路径波动 |
-| `rn2/rl2`（预算允许） | 确认 accuracy 导向的 P2 Rel 信号 |
+| U1a 配置 | 目的 | N/s1 结果 |
+|---|---|---|
+| `s0` | 同 seed 主基线 | BA 84.17% |
+| `rn3` | P3 late-K3 exact Null | BA 82.66% |
+| `rl3` | 复现 MR 的 Rel 信号 | BA 80.12%；相对 `rn3` −2.53 pp，未复现 |
+| `h00_p1_k10` | 与 H2 完全匹配的 Top-K10 strict joint Null | BA 81.55% |
+| `h11_p1_k10` | 原 H2 Proto+Rel active | BA 84.30%；相对 `h00` +2.74 pp、相对 `s0` +0.13 pp |
 
-前六项为 6 配置 × 2 新 seeds = 12 次；加已有 seed 1 后可形成三 seed 判断。旧版 Proto-only active 暂不列为必跑，因为 outer-test 没有任何 Active–Null 支持。只有 active 在多数 seed 中同时超过 SupLoss 和 exact Null，才值得进入多折 LOSO。
+U1a 已证明统一 runner、strict Null 与固定 epoch 测试链路可用，但没有达到“active 明显同时超过 SupLoss 和 exact Null”的性能门槛。接下来有两种不同目的，不能混在一起：
+
+1. **如果目标是尽快推进主项目：**停止围绕旧版 `rl3`/Proto-only 扩大搜索，保留 U1a 为否定/异质性证据，转入预定的 t17 采样与 SupLoss/增强筛选；这些开发只能使用 `subject_dev`，不能根据已经查看过的 N 结果再称 N 为全新独立测试。
+2. **如果目标是给旧版损失一个最终统计结论：**保持这5个配置完全冻结，执行 U1b 的其余受试者与至少一个额外 seed，并报告每个 subject/seed 的 Active–Null 和 Active–`s0` 配对差、均值、最差被试和方向一致率。此时 N 只是预先已查看的一折，不再是独立最终测试。
+
+无论选择哪条路线，统一统计程序都应自动读取已经存在的逐样本预测并输出 paired bootstrap 与 exact McNemar，避免每轮手工补算。`h10/h01` 只有在研究问题确实需要拆分 H11 的 Proto/Rel 贡献时才值得加入；它们属于新的配置开发，应放在 `subject_dev`，而不是继续接触 N。
 
 ## 10. 最可能成功的损失改进方向
 
@@ -433,7 +548,7 @@ P3 Null `rn3` 为 0.5292：
 1. **记录并控制梯度比例**：每 10 epoch 计算 `g_sup`、`g_rel` 和 cosine；将 `||λrel g_rel|| / ||g_sup||` 控制在约 1%–5% 的起始范围，再根据验证调整。
 2. **EMA 自适应缩放**：`λeff = clip(r × EMA(|Lsup|)/EMA(|Lrel|))`，避免 raw loss 只有 0.001 时 λ=1 仍几乎不起作用。
 3. **短 warmup 后恒定**：启动后用 5–10 epoch 线性 ramp 到目标比例，然后保持，而不是让 cosine 在较长时间接近 0。
-4. **以 P3 late-K3 作为确认起点**：outer-test 支持 `rl3` 而不支持验证集最高的 early-K10 P2；优先复现 P3 late-K3，再用 exact matched design 单独拆分 P、K 和启动时间。
+4. **不再把 P3 late-K3 当作默认性能起点**：MR 支持 `rl3`，但 N 上 exact Active–Null 反转。若保留该设置，应把它作为 subject-dependence 机制对照，并在冻结的多折/多 seed 设计中报告方向一致率。
 5. **关系只约束真正混淆的类别**：根据验证混淆矩阵或 queue 中最近异类动态选择 pair；`adjust/cap/remove` 是当前最需要改善的类别。
 6. **监测梯度冲突**：若 `cos(g_sup,g_rel)<0`，可对 Rel 梯度做投影或仅在不冲突时更新，防止几何分离损害分类结构。
 
@@ -457,24 +572,25 @@ P3 Null `rn3` 为 0.5292：
 - 不建议直接运行全部 Stage 2B/3B 网格；
 - 不建议把 λrel 从 1 粗暴增加到 5/10，而不看梯度比例；
 - 不建议直接把 `rl3` 的 91.06% 写成最终性能；这是从30个模型中选出的单人单seed最高值；
-- 不建议继续使用 MR test 调参，否则会失去当前唯一的外层测试证据。
+- 不建议把 `h11` 的 N 折84.30%写成稳定提升；它只比 `s0` 高0.13 pp BA、3个正确样本；
+- 不建议继续使用 MR 或 N 的已查看结果调参，并随后把它们称为全新独立测试证据。
 
 ### 当前建议
 
-1. 本轮先保留结果，不根据 MR 继续搜索；
-2. 若未来继续，按第 9 节复现 `rl3/rn3` 与 `h2/hn1`，同时补 SupLoss 同 seed；
-3. 同时补独立梯度诊断、soft responsibility entropy 和逐样本预测保存；
-4. Proto-only 旧版不再进入组合，除非改进后的版本先超过 exact Null；
-5. Rel 改进以 P3 late-K3 为起点，但用梯度比例控制并监测与 SupLoss 的冲突；
-6. 最终性能只能来自冻结配置后的其它受试者折与多 seed，不能再次选择 MR 最优。
+1. 冻结并保留 U1a 结果，不根据 N 继续修改这5个配置；
+2. 主项目若强调效率，优先进入 t17 的 `subject_dev` 采样/SupLoss/增强实验，不扩大旧版 Loss 网格；
+3. 若需要旧版损失的最终统计结论，只运行冻结 U1b，多折、多 seed 同时比较 `active-null` 与 `active-s0`，不再选择单折最高值；
+4. 逐样本预测已经存在；下一步应把配对统计接入统一报告，并补独立梯度范数/夹角与 soft responsibility entropy；
+5. Proto-only 旧版不再进入组合，除非改进版本先在 `subject_dev` 超过 exact Null；
+6. `rl3` 只作为跨人异质性/机制对照保留，不再作为默认性能候选。
 
 ## 12. 最终回答
 
-- **SupLoss：有用。**inner-val 相对 Direct BA +2.81 pp，held-out MR test BA +6.68 pp、F1 +7.21 pp；但 accuracy 只 +1.04 pp，主要改善少数类均衡。
+- **SupLoss：仍是最可靠主基线。**inner-val 相对 Direct BA +2.81 pp，held-out MR test BA +6.68 pp、F1 +7.21 pp；U1a N final-refit 的 `s0` 也达到84.17% BA、83.61% F1、83.65% accuracy。
 - **ProtoLoss：旧版 active 没有得到外层测试支持。**hard P2 的验证优势在 test 反转；所有 Proto-only Active–Null 比较均未出现可信的三指标共同改善。多 prototype 高度重合仍是核心不足。
-- **RelLoss：有比 ProtoLoss 更强的候选证据。**`rl3_k3_s125` 相对 exact P3 Null 的 test BA +5.11 pp、F1 +2.42 pp，但 accuracy 不变；它改善的是类别均衡，仍需跨人/多 seed 复现。
-- **Proto+Rel：`h2_emg_both_p1_k10` 是当前三指标最一致的组合信号。**相对 P1 Null 的 test BA/F1/accuracy 分别 +5.23/+4.24/+4.94 pp，但 P1 本质上是类中心而非多 prototype，且只有一个 seed。
-- **更新后的暂定候选**：Rel=`rl3_k3_s125`；组合=`h2_emg_both_p1_k10`；Proto-only=无。它们都是后续确认对象，不是可以直接写入论文的最终最佳配置。
+- **RelLoss：机制有效，但性能不稳定。**`rl3-rn3` 在 MR 为 BA/F1 +5.11/+2.42 pp，在 N 却为 −2.53/−2.82 pp；几何分离在两折都发生，但分类效应跨人反向。
+- **Proto+Rel：`h11_p1_k10` 保留弱信号。**N 上相对完全匹配的 strict `h00` 为 BA/F1/accuracy +2.74/+2.73/+2.16 pp，但相对 `s0` 仅 +0.13/+0.99/+0.72 pp。P1 本质上是类中心，且没有 `h10/h01`，不能拆分 Proto 与 Rel 的贡献。
+- **更新后的候选状态**：性能主线=`s0`；弱联合候选=`h11_p1_k10`；机制/异质性候选=`rl3/rn3`；Proto-only=无。现有旧版损失结果都不能直接写成稳定优于 SupLoss 的论文结论。
 
 ## 13. 可复核分析文件
 
@@ -491,3 +607,12 @@ P3 Null `rn3` 为 0.5292：
 - `analysis_20260812/analysis_tables.json`
 
 这些表保留了本报告中的验证/测试排名、损失量级、启动边界、prototype 健康度、光照关联和逐类测试证据。
+
+U1a 更新另外直接复核了：
+
+- `results/rgb_mvit_pr_unified_followup_20260813/manifests/u1a_confirm15_min.meta.json`
+- `results/rgb_mvit_pr_unified_followup_20260813/analysis_unified/analysis_audit.json`
+- `results/rgb_mvit_pr_unified_followup_20260813/analysis_unified/UNIFIED_STATISTICAL_REPORT.md`
+- 5个配置各自的 `run_meta/.../resolved_config.json`、`test/.../last_test_metrics.json`、`pretrain/.../debug_train_log.jsonl` 与 epoch 200 prototype/environment 诊断。
+
+上述文件支持 U1a 的运行完整性、锁定配置、整体/逐类结果、Active–Null 差值和 prototype 几何结论。5个配置的 `predictions.csv` 还支持本报告新增的10,000次分层 paired bootstrap 和 exact McNemar；缺口是统一汇总程序尚未把这些统计自动写入报告。

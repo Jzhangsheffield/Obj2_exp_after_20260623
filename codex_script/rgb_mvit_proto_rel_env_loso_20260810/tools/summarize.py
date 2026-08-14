@@ -57,9 +57,14 @@ def main() -> None:
                 tests_by_key[key] = row
     tests = list(tests_by_key.values())
 
-    direct = next((row for row in tests if row["fold"] == "MR" and row["experiment"] == "d0_k400_direct"), None)
-    sup = next((row for row in tests if row["fold"] == "MR" and row["experiment"] == "s0_sup"), None)
+    test_lookup = {(row["fold"], row["stage"], row["experiment"]): row for row in tests}
     for row in tests:
+        if row["stage"] == "stage8":
+            direct = test_lookup.get((row["fold"], "stage8", "x8_d0_direct"))
+            sup = test_lookup.get((row["fold"], "stage8", "x8_s0_sup"))
+        else:
+            direct = next((candidate for candidate in tests if candidate["fold"] == row["fold"] and candidate["experiment"] == "d0_k400_direct"), None)
+            sup = next((candidate for candidate in tests if candidate["fold"] == row["fold"] and candidate["experiment"] == "s0_sup"), None)
         value = float(row["balanced_acc"]) if row["balanced_acc"] not in (None, "") else None
         row["delta_ba_vs_direct"] = value - float(direct["balanced_acc"]) if value is not None and direct else None
         row["delta_ba_vs_sup"] = value - float(sup["balanced_acc"]) if value is not None and sup else None
@@ -74,6 +79,29 @@ def main() -> None:
     write_csv("validation_runs.csv", validation)
     write_csv("outer_test_runs.csv", tests)
     write_csv("outer_test_ranking.csv", tests)
+
+    stage8_pairs = [
+        ("proto_main", "x8_h10_p1_k10", "x8_h00_p1_k10"),
+        ("rel_main", "x8_h01_p1_k10", "x8_h00_p1_k10"),
+        ("joint_vs_null", "x8_h11_p1_k10", "x8_h00_p1_k10"),
+        ("joint_vs_sup", "x8_h11_p1_k10", "x8_s0_sup"),
+        ("p3_rel_main", "x8_rl3_k3_s125", "x8_rn3_k3_s125"),
+        ("p3_active_vs_sup", "x8_rl3_k3_s125", "x8_s0_sup"),
+    ]
+    paired_rows: list[dict] = []
+    for fold in ("M", "J", "MR", "N"):
+        for contrast, active_id, reference_id in stage8_pairs:
+            active = test_lookup.get((fold, "stage8", active_id))
+            reference = test_lookup.get((fold, "stage8", reference_id))
+            if not active or not reference:
+                continue
+            paired_rows.append({
+                "fold": fold, "contrast": contrast, "active": active_id, "reference": reference_id,
+                "delta_balanced_acc": float(active["balanced_acc"]) - float(reference["balanced_acc"]),
+                "delta_macro_f1": float(active["macro_f1"]) - float(reference["macro_f1"]),
+                "delta_accuracy": float(active["accuracy"]) - float(reference["accuracy"]),
+            })
+    write_csv("stage8_paired_differences.csv", paired_rows)
 
     groups: dict[tuple[str, str], list[dict]] = {}
     for row in tests:
