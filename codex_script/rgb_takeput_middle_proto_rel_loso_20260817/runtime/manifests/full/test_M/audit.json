@@ -1,0 +1,52 @@
+{
+  "role": "locked_generalization",
+  "train_people": [
+    "MR",
+    "N",
+    "J"
+  ],
+  "test_people": [
+    "M"
+  ],
+  "train_rows": 3378,
+  "test_rows": 1165,
+  "train_counts_by_tier1": {
+    "adjust": 30,
+    "cap": 50,
+    "close": 15,
+    "cut": 124,
+    "insert": 241,
+    "label": 109,
+    "measure": 73,
+    "move": 90,
+    "open": 55,
+    "position": 36,
+    "press": 36,
+    "pull_out": 111,
+    "put": 959,
+    "remove": 68,
+    "take": 1219,
+    "tear": 56,
+    "wrap": 106
+  },
+  "test_counts_by_tier1": {
+    "adjust": 14,
+    "cap": 16,
+    "close": 10,
+    "cut": 46,
+    "insert": 82,
+    "label": 38,
+    "measure": 25,
+    "move": 39,
+    "open": 24,
+    "position": 13,
+    "press": 12,
+    "pull_out": 35,
+    "put": 319,
+    "remove": 18,
+    "take": 423,
+    "tear": 15,
+    "wrap": 36
+  },
+  "overlap_original_key": 0
+}

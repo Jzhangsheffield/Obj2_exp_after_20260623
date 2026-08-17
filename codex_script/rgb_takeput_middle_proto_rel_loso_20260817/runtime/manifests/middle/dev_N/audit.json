@@ -1,0 +1,40 @@
+{
+  "role": "development",
+  "train_people": [
+    "M",
+    "MR",
+    "J"
+  ],
+  "test_people": [
+    "N"
+  ],
+  "train_rows": 1073,
+  "test_rows": 384,
+  "train_counts_by_tier1": {
+    "cap": 48,
+    "cut": 127,
+    "insert": 235,
+    "label": 110,
+    "measure": 73,
+    "move": 83,
+    "open": 64,
+    "pull_out": 107,
+    "remove": 66,
+    "tear": 53,
+    "wrap": 107
+  },
+  "test_counts_by_tier1": {
+    "cap": 18,
+    "cut": 43,
+    "insert": 88,
+    "label": 37,
+    "measure": 25,
+    "move": 46,
+    "open": 15,
+    "pull_out": 39,
+    "remove": 20,
+    "tear": 18,
+    "wrap": 35
+  },
+  "overlap_original_key": 0
+}

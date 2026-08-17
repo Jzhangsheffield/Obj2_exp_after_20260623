@@ -1,0 +1,22 @@
+{
+  "role": "locked_generalization",
+  "train_people": [
+    "M",
+    "MR",
+    "N"
+  ],
+  "test_people": [
+    "J"
+  ],
+  "train_rows": 2192,
+  "test_rows": 728,
+  "train_counts_by_tier1": {
+    "put": 958,
+    "take": 1234
+  },
+  "test_counts_by_tier1": {
+    "put": 320,
+    "take": 408
+  },
+  "overlap_original_key": 0
+}

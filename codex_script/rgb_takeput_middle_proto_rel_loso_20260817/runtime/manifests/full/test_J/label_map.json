@@ -1,0 +1,44 @@
+{
+  "tier1": {
+    "adjust": 0,
+    "cap": 1,
+    "close": 2,
+    "cut": 3,
+    "insert": 4,
+    "label": 5,
+    "measure": 6,
+    "move": 7,
+    "open": 8,
+    "position": 9,
+    "press": 10,
+    "pull_out": 11,
+    "put": 12,
+    "remove": 13,
+    "take": 14,
+    "tear": 15,
+    "wrap": 16
+  },
+  "__meta__": {
+    "task": "full",
+    "class_order": [
+      "adjust",
+      "cap",
+      "close",
+      "cut",
+      "insert",
+      "label",
+      "measure",
+      "move",
+      "open",
+      "position",
+      "press",
+      "pull_out",
+      "put",
+      "remove",
+      "take",
+      "tear",
+      "wrap"
+    ],
+    "source": "C:\\Junxi_data_for_training_speedup\\Final_Mapstyle_Dataset\\merged_manifest.jsonl"
+  }
+}

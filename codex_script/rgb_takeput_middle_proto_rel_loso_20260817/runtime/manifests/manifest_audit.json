@@ -1,0 +1,592 @@
+{
+  "source": "C:\\Junxi_data_for_training_speedup\\Final_Mapstyle_Dataset\\merged_manifest.jsonl",
+  "source_rows": 4543,
+  "source_sha256": "0f437fd05354280e07f4a7e42ba7afdb2c618dda28e1cf5392a46af9fd8a0751",
+  "source_counts_by_person": {
+    "J": 1127,
+    "M": 1165,
+    "MR": 1120,
+    "N": 1131
+  },
+  "source_counts_by_tier1": {
+    "adjust": 44,
+    "cap": 66,
+    "close": 25,
+    "cut": 170,
+    "insert": 323,
+    "label": 147,
+    "measure": 98,
+    "move": 129,
+    "open": 79,
+    "position": 49,
+    "press": 48,
+    "pull_out": 146,
+    "put": 1278,
+    "remove": 86,
+    "take": 1642,
+    "tear": 71,
+    "wrap": 142
+  },
+  "tasks": {
+    "take_put": {
+      "classes": [
+        "take",
+        "put"
+      ],
+      "total": 2920,
+      "counts_by_person": {
+        "J": 728,
+        "M": 742,
+        "MR": 735,
+        "N": 715
+      },
+      "counts_by_tier1": {
+        "put": 1278,
+        "take": 1642
+      },
+      "folds": {
+        "dev_N": {
+          "role": "development",
+          "train_people": [
+            "M",
+            "MR",
+            "J"
+          ],
+          "test_people": [
+            "N"
+          ],
+          "train_rows": 2205,
+          "test_rows": 715,
+          "train_counts_by_tier1": {
+            "put": 958,
+            "take": 1247
+          },
+          "test_counts_by_tier1": {
+            "put": 320,
+            "take": 395
+          },
+          "overlap_original_key": 0
+        },
+        "test_M": {
+          "role": "locked_generalization",
+          "train_people": [
+            "MR",
+            "N",
+            "J"
+          ],
+          "test_people": [
+            "M"
+          ],
+          "train_rows": 2178,
+          "test_rows": 742,
+          "train_counts_by_tier1": {
+            "put": 959,
+            "take": 1219
+          },
+          "test_counts_by_tier1": {
+            "put": 319,
+            "take": 423
+          },
+          "overlap_original_key": 0
+        },
+        "test_J": {
+          "role": "locked_generalization",
+          "train_people": [
+            "M",
+            "MR",
+            "N"
+          ],
+          "test_people": [
+            "J"
+          ],
+          "train_rows": 2192,
+          "test_rows": 728,
+          "train_counts_by_tier1": {
+            "put": 958,
+            "take": 1234
+          },
+          "test_counts_by_tier1": {
+            "put": 320,
+            "take": 408
+          },
+          "overlap_original_key": 0
+        },
+        "test_MR": {
+          "role": "locked_generalization",
+          "train_people": [
+            "M",
+            "N",
+            "J"
+          ],
+          "test_people": [
+            "MR"
+          ],
+          "train_rows": 2185,
+          "test_rows": 735,
+          "train_counts_by_tier1": {
+            "put": 959,
+            "take": 1226
+          },
+          "test_counts_by_tier1": {
+            "put": 319,
+            "take": 416
+          },
+          "overlap_original_key": 0
+        }
+      }
+    },
+    "middle": {
+      "classes": [
+        "insert",
+        "cut",
+        "label",
+        "pull_out",
+        "wrap",
+        "move",
+        "measure",
+        "remove",
+        "open",
+        "tear",
+        "cap"
+      ],
+      "total": 1457,
+      "counts_by_person": {
+        "J": 352,
+        "M": 374,
+        "MR": 347,
+        "N": 384
+      },
+      "counts_by_tier1": {
+        "cap": 66,
+        "cut": 170,
+        "insert": 323,
+        "label": 147,
+        "measure": 98,
+        "move": 129,
+        "open": 79,
+        "pull_out": 146,
+        "remove": 86,
+        "tear": 71,
+        "wrap": 142
+      },
+      "folds": {
+        "dev_N": {
+          "role": "development",
+          "train_people": [
+            "M",
+            "MR",
+            "J"
+          ],
+          "test_people": [
+            "N"
+          ],
+          "train_rows": 1073,
+          "test_rows": 384,
+          "train_counts_by_tier1": {
+            "cap": 48,
+            "cut": 127,
+            "insert": 235,
+            "label": 110,
+            "measure": 73,
+            "move": 83,
+            "open": 64,
+            "pull_out": 107,
+            "remove": 66,
+            "tear": 53,
+            "wrap": 107
+          },
+          "test_counts_by_tier1": {
+            "cap": 18,
+            "cut": 43,
+            "insert": 88,
+            "label": 37,
+            "measure": 25,
+            "move": 46,
+            "open": 15,
+            "pull_out": 39,
+            "remove": 20,
+            "tear": 18,
+            "wrap": 35
+          },
+          "overlap_original_key": 0
+        },
+        "test_M": {
+          "role": "locked_generalization",
+          "train_people": [
+            "MR",
+            "N",
+            "J"
+          ],
+          "test_people": [
+            "M"
+          ],
+          "train_rows": 1083,
+          "test_rows": 374,
+          "train_counts_by_tier1": {
+            "cap": 50,
+            "cut": 124,
+            "insert": 241,
+            "label": 109,
+            "measure": 73,
+            "move": 90,
+            "open": 55,
+            "pull_out": 111,
+            "remove": 68,
+            "tear": 56,
+            "wrap": 106
+          },
+          "test_counts_by_tier1": {
+            "cap": 16,
+            "cut": 46,
+            "insert": 82,
+            "label": 38,
+            "measure": 25,
+            "move": 39,
+            "open": 24,
+            "pull_out": 35,
+            "remove": 18,
+            "tear": 15,
+            "wrap": 36
+          },
+          "overlap_original_key": 0
+        },
+        "test_J": {
+          "role": "locked_generalization",
+          "train_people": [
+            "M",
+            "MR",
+            "N"
+          ],
+          "test_people": [
+            "J"
+          ],
+          "train_rows": 1105,
+          "test_rows": 352,
+          "train_counts_by_tier1": {
+            "cap": 52,
+            "cut": 132,
+            "insert": 248,
+            "label": 111,
+            "measure": 74,
+            "move": 106,
+            "open": 55,
+            "pull_out": 110,
+            "remove": 60,
+            "tear": 50,
+            "wrap": 107
+          },
+          "test_counts_by_tier1": {
+            "cap": 14,
+            "cut": 38,
+            "insert": 75,
+            "label": 36,
+            "measure": 24,
+            "move": 23,
+            "open": 24,
+            "pull_out": 36,
+            "remove": 26,
+            "tear": 21,
+            "wrap": 35
+          },
+          "overlap_original_key": 0
+        },
+        "test_MR": {
+          "role": "locked_generalization",
+          "train_people": [
+            "M",
+            "N",
+            "J"
+          ],
+          "test_people": [
+            "MR"
+          ],
+          "train_rows": 1110,
+          "test_rows": 347,
+          "train_counts_by_tier1": {
+            "cap": 48,
+            "cut": 127,
+            "insert": 245,
+            "label": 111,
+            "measure": 74,
+            "move": 108,
+            "open": 63,
+            "pull_out": 110,
+            "remove": 64,
+            "tear": 54,
+            "wrap": 106
+          },
+          "test_counts_by_tier1": {
+            "cap": 18,
+            "cut": 43,
+            "insert": 78,
+            "label": 36,
+            "measure": 24,
+            "move": 21,
+            "open": 16,
+            "pull_out": 36,
+            "remove": 22,
+            "tear": 17,
+            "wrap": 36
+          },
+          "overlap_original_key": 0
+        }
+      }
+    },
+    "full": {
+      "classes": [
+        "adjust",
+        "cap",
+        "close",
+        "cut",
+        "insert",
+        "label",
+        "measure",
+        "move",
+        "open",
+        "position",
+        "press",
+        "pull_out",
+        "put",
+        "remove",
+        "take",
+        "tear",
+        "wrap"
+      ],
+      "total": 4543,
+      "counts_by_person": {
+        "J": 1127,
+        "M": 1165,
+        "MR": 1120,
+        "N": 1131
+      },
+      "counts_by_tier1": {
+        "adjust": 44,
+        "cap": 66,
+        "close": 25,
+        "cut": 170,
+        "insert": 323,
+        "label": 147,
+        "measure": 98,
+        "move": 129,
+        "open": 79,
+        "position": 49,
+        "press": 48,
+        "pull_out": 146,
+        "put": 1278,
+        "remove": 86,
+        "take": 1642,
+        "tear": 71,
+        "wrap": 142
+      },
+      "folds": {
+        "dev_N": {
+          "role": "development",
+          "train_people": [
+            "M",
+            "MR",
+            "J"
+          ],
+          "test_people": [
+            "N"
+          ],
+          "train_rows": 3412,
+          "test_rows": 1131,
+          "train_counts_by_tier1": {
+            "adjust": 36,
+            "cap": 48,
+            "close": 25,
+            "cut": 127,
+            "insert": 235,
+            "label": 110,
+            "measure": 73,
+            "move": 83,
+            "open": 64,
+            "position": 37,
+            "press": 36,
+            "pull_out": 107,
+            "put": 958,
+            "remove": 66,
+            "take": 1247,
+            "tear": 53,
+            "wrap": 107
+          },
+          "test_counts_by_tier1": {
+            "adjust": 8,
+            "cap": 18,
+            "cut": 43,
+            "insert": 88,
+            "label": 37,
+            "measure": 25,
+            "move": 46,
+            "open": 15,
+            "position": 12,
+            "press": 12,
+            "pull_out": 39,
+            "put": 320,
+            "remove": 20,
+            "take": 395,
+            "tear": 18,
+            "wrap": 35
+          },
+          "overlap_original_key": 0
+        },
+        "test_M": {
+          "role": "locked_generalization",
+          "train_people": [
+            "MR",
+            "N",
+            "J"
+          ],
+          "test_people": [
+            "M"
+          ],
+          "train_rows": 3378,
+          "test_rows": 1165,
+          "train_counts_by_tier1": {
+            "adjust": 30,
+            "cap": 50,
+            "close": 15,
+            "cut": 124,
+            "insert": 241,
+            "label": 109,
+            "measure": 73,
+            "move": 90,
+            "open": 55,
+            "position": 36,
+            "press": 36,
+            "pull_out": 111,
+            "put": 959,
+            "remove": 68,
+            "take": 1219,
+            "tear": 56,
+            "wrap": 106
+          },
+          "test_counts_by_tier1": {
+            "adjust": 14,
+            "cap": 16,
+            "close": 10,
+            "cut": 46,
+            "insert": 82,
+            "label": 38,
+            "measure": 25,
+            "move": 39,
+            "open": 24,
+            "position": 13,
+            "press": 12,
+            "pull_out": 35,
+            "put": 319,
+            "remove": 18,
+            "take": 423,
+            "tear": 15,
+            "wrap": 36
+          },
+          "overlap_original_key": 0
+        },
+        "test_J": {
+          "role": "locked_generalization",
+          "train_people": [
+            "M",
+            "MR",
+            "N"
+          ],
+          "test_people": [
+            "J"
+          ],
+          "train_rows": 3416,
+          "test_rows": 1127,
+          "train_counts_by_tier1": {
+            "adjust": 32,
+            "cap": 52,
+            "close": 14,
+            "cut": 132,
+            "insert": 248,
+            "label": 111,
+            "measure": 74,
+            "move": 106,
+            "open": 55,
+            "position": 37,
+            "press": 36,
+            "pull_out": 110,
+            "put": 958,
+            "remove": 60,
+            "take": 1234,
+            "tear": 50,
+            "wrap": 107
+          },
+          "test_counts_by_tier1": {
+            "adjust": 12,
+            "cap": 14,
+            "close": 11,
+            "cut": 38,
+            "insert": 75,
+            "label": 36,
+            "measure": 24,
+            "move": 23,
+            "open": 24,
+            "position": 12,
+            "press": 12,
+            "pull_out": 36,
+            "put": 320,
+            "remove": 26,
+            "take": 408,
+            "tear": 21,
+            "wrap": 35
+          },
+          "overlap_original_key": 0
+        },
+        "test_MR": {
+          "role": "locked_generalization",
+          "train_people": [
+            "M",
+            "N",
+            "J"
+          ],
+          "test_people": [
+            "MR"
+          ],
+          "train_rows": 3423,
+          "test_rows": 1120,
+          "train_counts_by_tier1": {
+            "adjust": 34,
+            "cap": 48,
+            "close": 21,
+            "cut": 127,
+            "insert": 245,
+            "label": 111,
+            "measure": 74,
+            "move": 108,
+            "open": 63,
+            "position": 37,
+            "press": 36,
+            "pull_out": 110,
+            "put": 959,
+            "remove": 64,
+            "take": 1226,
+            "tear": 54,
+            "wrap": 106
+          },
+          "test_counts_by_tier1": {
+            "adjust": 10,
+            "cap": 18,
+            "close": 4,
+            "cut": 43,
+            "insert": 78,
+            "label": 36,
+            "measure": 24,
+            "move": 21,
+            "open": 16,
+            "position": 12,
+            "press": 12,
+            "pull_out": 36,
+            "put": 319,
+            "remove": 22,
+            "take": 416,
+            "tear": 17,
+            "wrap": 36
+          },
+          "overlap_original_key": 0
+        }
+      }
+    }
+  }
+}

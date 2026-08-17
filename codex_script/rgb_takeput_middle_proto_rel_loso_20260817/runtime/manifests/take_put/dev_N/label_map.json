@@ -1,0 +1,14 @@
+{
+  "tier1": {
+    "take": 0,
+    "put": 1
+  },
+  "__meta__": {
+    "task": "take_put",
+    "class_order": [
+      "take",
+      "put"
+    ],
+    "source": "C:\\Junxi_data_for_training_speedup\\Final_Mapstyle_Dataset\\merged_manifest.jsonl"
+  }
+}

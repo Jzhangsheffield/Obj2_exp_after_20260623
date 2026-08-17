@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "package_name": "rgb_takeput_middle_proto_rel_loso_20260817",
+  "description": "Take/Put initialization-backbone study and Middle-class old ProtoLoss/RelLoss study",
+  "paths": {
+    "windows": {
+      "project_root": "D:/Junxi_data/Obj2_experiments_after_260623",
+      "dataset_root": "C:/Junxi_data_for_training_speedup/Final_Mapstyle_Dataset",
+      "python_bin": "python",
+      "results_root": "D:/Junxi_data/Obj2_experiments_after_260623/results/rgb_takeput_middle_proto_rel_loso_20260817"
+    },
+    "hpc": {
+      "project_root": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623",
+      "dataset_root": "/mnt/parscratch/users/mes19jz/datasets/thermal_crimp/Final_Mapstyle_Dataset",
+      "python_bin": "python",
+      "results_root": "/mnt/parscratch/users/mes19jz/objective2/thermal_crimp/experiments_after_260623/results/rgb_takeput_middle_proto_rel_loso_20260817"
+    }
+  },
+  "sources": {
+    "merged_manifest": "merged_manifest.jsonl",
+    "old_pretrain_script": "train/MoCo_main_supcon_mapstyle_varproto_debug_topk_adamw.py",
+    "classifier_script": "codex_script/rgb_mvit_motioncrop_seed1_20260721/src/ft_and_test/train_classifier.py",
+    "classifier_src_root": "codex_script/rgb_mvit_motioncrop_seed1_20260721/src",
+    "forbidden_package": "codex_script/rgb_proto_rel_v2_20260804"
+  },
+  "data": {
+    "people": ["M", "MR", "N", "J"],
+    "tasks": {
+      "take_put": ["take", "put"],
+      "middle": ["insert", "cut", "label", "pull_out", "wrap", "move", "measure", "remove", "open", "tear", "cap"],
+      "full": ["adjust", "cap", "close", "cut", "insert", "label", "measure", "move", "open", "position", "press", "pull_out", "put", "remove", "take", "tear", "wrap"]
+    },
+    "folds": {
+      "dev_N": {"train_people": ["M", "MR", "J"], "test_people": ["N"], "role": "development"},
+      "test_M": {"train_people": ["MR", "N", "J"], "test_people": ["M"], "role": "locked_generalization"},
+      "test_J": {"train_people": ["M", "MR", "N"], "test_people": ["J"], "role": "locked_generalization"},
+      "test_MR": {"train_people": ["M", "N", "J"], "test_people": ["MR"], "role": "locked_generalization"}
+    },
+    "manifest_output_rel": "runtime/manifests"
+  },
+  "model": {
+    "tier_mode": "tier1",
+    "n_frames": 16,
+    "image_size": 224,
+    "rgb_camera_id": "00143",
+    "rgb_mean": [0.45, 0.45, 0.45],
+    "rgb_std": [0.225, 0.225, 0.225],
+    "projection_dim": 128,
+    "queue_size": 1088
+  },
+  "training": {
+    "seed": 1,
+    "pretrain": {
+      "epochs": 200,
+      "batch_size": 32,
+      "num_workers": 8,
+      "optimizer": "adamw",
+      "learning_rate": 0.00006,
+      "weight_decay": 0.0001,
+      "warmup_epochs": 10,
+      "temperature": 0.07,
+      "save_interval": 50,
+      "prototype_diagnostic_interval": 1,
+      "recluster_interval": 10,
+      "debug_log_interval": 10,
+      "debug_grad_topk": 32,
+      "proto_temperature": 0.07,
+      "proto_ema_momentum": 0.99,
+      "preview_ema_momentum": 0.5,
+      "proto_kmeans_random_state": 42,
+      "proto_kmeans_n_init": 10,
+      "proto_kmeans_max_iter": 300,
+      "rel_same_margin": 0.01,
+      "rel_diff_margin": 0.01,
+      "rel_checkpoint_after_epochs": 0
+    },
+    "direct_classifier": {
+      "epochs": 100,
+      "batch_size": 32,
+      "num_workers_train": 8,
+      "num_workers_test": 8,
+      "optimizer": "adamw",
+      "backbone_learning_rate": 0.00006,
+      "head_learning_rate": 0.002,
+      "weight_decay": 0.0001,
+      "schedule": [50, 75],
+      "save_period": 25
+    },
+    "downstream_finetune": {
+      "epochs": 50,
+      "batch_size": 32,
+      "num_workers_train": 8,
+      "num_workers_test": 8,
+      "optimizer": "adamw",
+      "backbone_learning_rate": 0.00006,
+      "head_learning_rate": 0.002,
+      "weight_decay": 0.0001,
+      "schedule": [25, 37],
+      "save_period": 25
+    },
+    "classifier_augmentation": {
+      "rrc_scale": [0.85, 1.0],
+      "rrc_ratio": [0.9, 1.1],
+      "hflip_p": 0.5,
+      "vflip_p": 0.0,
+      "jitter_p": 0.0,
+      "gray_p": 0.0,
+      "blur_p": 0.0
+    }
+  },
+  "augmentation_profiles": {
+    "a0_mild": {"description": "Existing mild baseline", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0, "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]},
+    "a1_slowfast": {"description": "SlowFast/MoCo-v2-style candidate adapted to this loader; not claimed as a verbatim paper recipe", "rrc_scale": [0.2, 0.766], "rrc_ratio": [0.75, 1.3333], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.8, "jitter_strength": [0.6, 0.6, 0.6, 0.15], "gray_p": 0.2, "blur_p": 0.5, "blur_kernel": 21, "blur_sigma": [0.1, 2.0]},
+    "a2_cvrl_adapted": {"description": "CVRL parameters adapted to the symmetric two-view loader", "rrc_scale": [0.3, 1.0], "rrc_ratio": [0.5, 2.0], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.8, "jitter_strength": [0.8, 0.8, 0.8, 0.2], "gray_p": 0.2, "blur_p": 0.5, "blur_kernel": 21, "blur_sigma": [0.1, 2.0]},
+    "a3_tclr_adapted": {"description": "TCLR-inspired approximation; channel drop and erase are deliberately not silently emulated", "rrc_scale": [0.36, 1.0], "rrc_ratio": [1.0, 1.0], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.3, "jitter_strength": [0.25, 0.25, 0.25, 0.1], "gray_p": 0.175, "blur_p": 0.0, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]},
+    "a4_geometry_only": {"description": "Strong crop without photometric perturbation", "rrc_scale": [0.3, 1.0], "rrc_ratio": [0.5, 2.0], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.0, "jitter_strength": [0.0, 0.0, 0.0, 0.0], "gray_p": 0.0, "blur_p": 0.0, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]},
+    "a5_photo_only": {"description": "Mild crop with strong photometric perturbation", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.5, "vflip_p": 0.0, "jitter_p": 0.8, "jitter_strength": [0.4, 0.4, 0.4, 0.1], "gray_p": 0.2, "blur_p": 0.5, "blur_kernel": 21, "blur_sigma": [0.1, 2.0]},
+    "a6_no_flip": {"description": "Mild baseline with horizontal flip disabled", "rrc_scale": [0.85, 1.0], "rrc_ratio": [0.9, 1.1], "hflip_p": 0.0, "vflip_p": 0.0, "jitter_p": 0.2, "jitter_strength": [0.1, 0.1, 0.1, 0.02], "gray_p": 0.0, "blur_p": 0.1, "blur_kernel": 5, "blur_sigma": [0.1, 1.0]}
+  },
+  "selected": {
+    "middle_augmentation": "a0_mild",
+    "middle_proto_lambda": 0.5,
+    "middle_rel_lambda": 0.5,
+    "middle_rel_topk": 5,
+    "middle_loss_start_epoch": 50,
+    "locked_epoch_rule": "epoch_200_pretrain_then_epoch_50_finetune"
+  },
+  "experiment_grids": {
+    "takeput_direct": [
+      {"id": "r3d_rand_full", "backbone": "tv_r3d18", "backbone_init": "random", "finetune_policy": "full"},
+      {"id": "r3d_k400_full", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "finetune_policy": "full"},
+      {"id": "r3d_k400_head", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "finetune_policy": "head_only"},
+      {"id": "mvit_rand_full", "backbone": "mvit_v2_s", "backbone_init": "random", "finetune_policy": "full"},
+      {"id": "mvit_k400_full", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "finetune_policy": "full"},
+      {"id": "mvit_k400_head", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "finetune_policy": "head_only"}
+    ],
+    "takeput_pretrain": [
+      {"id": "r3d_rand_sup", "backbone": "tv_r3d18", "backbone_init": "random", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "r3d_k400_sup", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "mvit_rand_sup", "backbone": "mvit_v2_s", "backbone_init": "random", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "mvit_k400_sup", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0}
+    ],
+    "middle_aug": [
+      {"id": "aug_a0", "augmentation": "a0_mild"},
+      {"id": "aug_a1", "augmentation": "a1_slowfast"},
+      {"id": "aug_a2", "augmentation": "a2_cvrl_adapted"},
+      {"id": "aug_a3", "augmentation": "a3_tclr_adapted"},
+      {"id": "aug_a4", "augmentation": "a4_geometry_only"},
+      {"id": "aug_a5", "augmentation": "a5_photo_only"},
+      {"id": "aug_a6", "augmentation": "a6_no_flip"}
+    ],
+    "middle_loss_screen": [
+      {"id": "s0_sup", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "pnull_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "p010_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.1, "lambda_rel": 0.0},
+      {"id": "p050_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.5, "lambda_rel": 0.0},
+      {"id": "p100_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 1.0, "lambda_rel": 0.0},
+      {"id": "r025_k5_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.25, "rel_topk": 5},
+      {"id": "r050_k5_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_topk": 5},
+      {"id": "r100_k5_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 1.0, "rel_topk": 5}
+    ],
+    "middle_rel_topk": [
+      {"id": "r050_k3_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_topk": 3},
+      {"id": "r050_k5_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_topk": 5},
+      {"id": "r050_k10_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_topk": 10}
+    ],
+    "middle_rel_start": [
+      {"id": "r050_k5_s50", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_topk": 5, "rel_start": 50},
+      {"id": "r050_k5_s125", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.5, "rel_topk": 5, "rel_start": 125}
+    ],
+    "middle_combined": [
+      {"id": "joint_null_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0, "rel_topk": 5},
+      {"id": "joint_p050_r050_k5_p1", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 1, "lambda_proto": 0.5, "lambda_rel": 0.5, "rel_topk": 5}
+    ],
+    "middle_p2_sentinel": [
+      {"id": "p2_null", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 2, "lambda_proto": 0.0, "lambda_rel": 0.0, "rel_topk": 5},
+      {"id": "p2_active", "ablation_mode": "contrastive_proto_rel", "num_prototypes": 2, "lambda_proto": 0.5, "lambda_rel": 0.5, "rel_topk": 5}
+    ]
+  },
+  "slurm": {
+    "partition": "gpu",
+    "time": "48:00:00",
+    "gpus": 1,
+    "cpus_per_task": 8,
+    "memory": "64G",
+    "module_commands": [],
+    "activate_command": ""
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "tier1": {
+    "insert": 0,
+    "cut": 1,
+    "label": 2,
+    "pull_out": 3,
+    "wrap": 4,
+    "move": 5,
+    "measure": 6,
+    "remove": 7,
+    "open": 8,
+    "tear": 9,
+    "cap": 10
+  },
+  "__meta__": {
+    "task": "middle",
+    "class_order": [
+      "insert",
+      "cut",
+      "label",
+      "pull_out",
+      "wrap",
+      "move",
+      "measure",
+      "remove",
+      "open",
+      "tear",
+      "cap"
+    ],
+    "source": "C:\\Junxi_data_for_training_speedup\\Final_Mapstyle_Dataset\\merged_manifest.jsonl"
+  }
+}

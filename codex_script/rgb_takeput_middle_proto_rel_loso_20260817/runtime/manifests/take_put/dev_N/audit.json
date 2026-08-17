@@ -1,0 +1,22 @@
+{
+  "role": "development",
+  "train_people": [
+    "M",
+    "MR",
+    "J"
+  ],
+  "test_people": [
+    "N"
+  ],
+  "train_rows": 2205,
+  "test_rows": 715,
+  "train_counts_by_tier1": {
+    "put": 958,
+    "take": 1247
+  },
+  "test_counts_by_tier1": {
+    "put": 320,
+    "take": 395
+  },
+  "overlap_original_key": 0
+}
