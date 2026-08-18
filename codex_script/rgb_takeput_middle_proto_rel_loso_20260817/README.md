@@ -1,12 +1,14 @@
-# RGB Take/Put + Middle Proto/Rel 实验包
+# RGB Take/Put + Middle Backbone + Middle Proto/Rel 实验包
 
-本包用于新的 2 类与 11 类 RGB 实验，统一支持 Windows `.bat` 与 HPC Slurm。所有路径、训练超参数、增强参数和实验网格集中在 [`config/experiment_config.json`](config/experiment_config.json)；换电脑时优先只修改该文件中的 `paths.windows` 或 `paths.hpc`。
+本包用于新的 2 类与 11 类 RGB 实验，包括 Take/Put backbone 初始化对照、同构的 Middle backbone 初始化对照，以及 Middle Proto/Rel 实验。统一支持 Windows `.bat` 与 HPC Slurm。所有路径、训练超参数、增强参数和实验网格集中在 [`config/experiment_config.json`](config/experiment_config.json)；换电脑时优先只修改该文件中的 `paths.windows` 或 `paths.hpc`。
 
 ## 核心协议
 
 - `take_put`：`take, put`。
 - `middle`：`insert, cut, label, pull_out, wrap, move, measure, remove, open, tear, cap`。
 - `full`：全部 17 类；本包先生成 manifest，当前实验网格不自动训练 full。
+- `middle_direct`：在11类 Middle 上复刻 Take/Put 的6项 direct backbone×初始化对照。
+- `middle_backbone_pretrain`：在11类 Middle 上运行 R3D-18/MViT-v2-S × random/K400 的4项 SupLoss；每个 checkpoint 接 full/head-only 两种下游训练。
 - 参数开发固定使用 `dev_N`：M+MR+J 训练，N 每个分类 epoch 都评估并记录。
 - N 已参与模型、超参数和 epoch 选择，因此报告中必须称为开发被试，不能称为无偏最终测试。
 - 参数锁定后才运行 `test_M/test_J/test_MR`。每个 fold 都由其余三人训练、目标一人测试，不复用 N 上训练的权重。
@@ -28,11 +30,15 @@ Slurm 推荐始终通过 `scripts/slurm/submit.sh` 提交，使 `SLURM_SUBMIT_DI
 
 1. `10_takeput_direct_devN`：6 个直接分类配置。
 2. `11_takeput_supcon_devN`：4 个 SupLoss 预训练配置；每个预训练 checkpoint 接 full/head-only 两种下游微调。
-3. `20_middle_augmentation_devN`：7 个增强候选；先固定最佳增强。
-4. `30_middle_loss_screen_devN`：SupLoss、严格 null、P=1 Proto 权重与 Rel 权重初筛。
-5. `31_middle_rel_topk_devN`：topK=3/5/10；11 类中每类只有 10 个异类，因此 K=10 就是 all。
-6. `32_middle_followups_devN`：只在前一步证据支持时手动运行 Rel 起点、联合损失和 P=2 sentinel。
-7. 锁定配置后，用 `80_locked_generalization` 在 M/J/MR 三个独立 LOSO fold 运行。
+3. `12_middle_backbone_direct_devN`：11 类 Middle 的6项 direct backbone×初始化对照。
+4. `13_middle_backbone_supcon_devN`：11 类 Middle 的4项 SupLoss backbone×初始化对照；每项接 full/head-only。
+5. `20_middle_augmentation_devN`：7 个增强候选；先固定最佳增强。
+6. `30_middle_loss_screen_devN`：SupLoss、严格 null、P=1 Proto 权重与 Rel 权重初筛。
+7. `31_middle_rel_topk_devN`：topK=3/5/10；11 类中每类只有 10 个异类，因此 K=10 就是 all。
+8. `32_middle_followups_devN`：只在前一步证据支持时手动运行 Rel 起点、联合损失和 P=2 sentinel。
+9. 锁定配置后，用 `80_locked_generalization` 在 M/J/MR 三个独立 LOSO fold 运行。
+
+Middle backbone 对照固定使用现有 `a0_mild` SupLoss 增强和现有分类增强，不引入类别重采样、类别权重或新的优化超参数。这样可与 Take/Put 直接比较。由于 Middle 的 M/MR/J 训练集只有1,073条且各类为48–235条，N 只有384条且各类为15–88条，主要指标必须使用 balanced accuracy、macro-F1 和 per-class recall/F1，accuracy 仅作辅助。
 
 不建议铺开 P=2/P=3 主网格。主实验统一 P=1；P=2 仅保留 null/active 两个小型 sentinel，用于验证“多 prototype 高相似且无增益”的结论是否在新 11 类任务仍成立；不再安排 P=3。
 
@@ -41,12 +47,38 @@ Slurm 推荐始终通过 `scripts/slurm/submit.sh` 提交，使 `SLURM_SUBMIT_DI
 ```text
 python run.py validate --platform windows
 python run.py prepare --platform windows
+python run.py list --stage middle_direct --platform windows
+python run.py list --stage middle_backbone_pretrain --platform windows
+python run.py pipeline --stage middle_direct --experiment-id r3d_k400_full --fold dev_N --platform windows
+python run.py pipeline --stage middle_backbone_pretrain --experiment-id r3d_k400_sup --fold dev_N --platform windows
+python run.py features --stage middle_backbone_pretrain --experiment-id r3d_k400_sup --fold dev_N --checkpoint-kind pretrain --platform windows
+python run.py features --stage middle_backbone_pretrain --experiment-id r3d_k400_sup --fold dev_N --checkpoint-kind classifier --policy full --platform windows
 python run.py list --stage middle_loss_screen --platform windows
 python run.py pipeline --stage middle_loss_screen --index 2 --fold dev_N --platform windows
 python run.py summarize --platform windows
 ```
 
-`pipeline` 对预训练实验依次执行：200-epoch 预训练、full 微调、head-only 微调、训练诊断汇总。直接分类实验只执行其网格中指定的 full/head-only 策略。
+`pipeline` 对预训练实验依次执行：200-epoch 预训练、full 微调、head-only 微调、训练诊断汇总。`takeput_direct` 与 `middle_direct` 只执行各自网格中指定的 full/head-only 策略。
+
+新增 Middle backbone 对照使用独立结果 stage，不覆盖原有 Middle 增强/损失实验：
+
+- direct：`classifier/middle/<fold>/middle_direct/<id>/<policy>/`
+- SupLoss：`pretrain/middle/<fold>/middle_backbone_pretrain/<id>/`
+- SupLoss 下游：`classifier/middle/<fold>/middle_backbone_pretrain/<id>/<policy>/`
+
+Windows 可直接运行：
+
+```text
+scripts\windows\12_middle_backbone_direct_devN.bat
+scripts\windows\13_middle_backbone_supcon_devN.bat
+```
+
+HPC 在 `scripts/slurm` 目录通过统一提交器运行：
+
+```text
+./submit.sh 12_middle_backbone_direct_devN.slurm
+./submit.sh 13_middle_backbone_supcon_devN.slurm
+```
 
 ## 结果与分析
 

@@ -27,7 +27,28 @@
 
 SupLoss 路线为 200 epochs 预训练 + 50 epochs 下游训练。R3D-18/MViT-v2-S × random/K400 共 4 个预训练 checkpoint；每个 checkpoint 复用到 full 与 head-only 两种微调，避免重复预训练。
 
-## 3. Middle 增强网格
+## 3. Middle backbone 与初始化对照
+
+该网格在11类 Middle manifest 上完整复刻 Take/Put 的 backbone×初始化协议，用于检验类别更多、总样本和每类样本更少时的优化、冻结表示与下游性能。
+
+`dev_N` 的 M/MR/J 训练集为1,073条，各类48–235条；N 为384条，各类15–88条。类别并不均衡，因此主指标为 balanced accuracy 与 macro-F1，并必须同时报告 per-class recall/F1 和混淆矩阵。随机水平 BA 为 `1/11=9.09%`。
+
+直接分类固定100 epochs：
+
+| backbone | 初始化 | 微调策略 |
+|---|---|---|
+| R3D-18 | random | full |
+| R3D-18 | K400 | full / head-only |
+| MViT-v2-S | random | full |
+| MViT-v2-S | K400 | full / head-only |
+
+与 Take/Put 相同，不运行 random + head-only direct。SupLoss 路线为 R3D-18/MViT-v2-S × random/K400 共4个200-epoch 预训练，每个 checkpoint 复用到 full/head-only 两种50-epoch 下游训练。
+
+该对照显式固定 `a0_mild`、16帧、224×224、projection dim 128、queue 1088、AdamW、backbone LR `6e-5`、head LR `2e-3` 和 seed 1。首轮不增加 class-balanced sampler、类别权重或 MViT 专用调参；random MViT 若再次塌缩，应作为失败负控制保留。实验同时改变了类别数、总样本数、每类样本数和不平衡程度，因此只能比较任务 regime，不能把差异单独因果归于某一因素。
+
+输出 stage 独立为 `middle_direct` 和 `middle_backbone_pretrain`，不会覆盖 `middle_aug`、`middle_loss_screen` 或后续 Proto/Rel 目录。
+
+## 4. Middle 增强网格
 
 本地旧训练器能表达的共同操作为：时序一致 RandomResizedCrop、水平/垂直翻转、ColorJitter、灰度和 Gaussian blur。论文/仓库还可能包含本 loader 不能等价表达的时序采样、channel drop 或 random erase；这些没有被静默伪装成别的增强。
 
@@ -50,7 +71,7 @@ SupLoss 路线为 200 epochs 预训练 + 50 epochs 下游训练。R3D-18/MViT-v2
 
 先比较 a0–a6 的 SupLoss 表征和下游结果，再把 `selected.middle_augmentation` 更新为胜出配置。不得在同一损失网格中继续改变增强。
 
-## 4. Middle ProtoLoss/RelLoss 网格
+## 5. Middle ProtoLoss/RelLoss 网格
 
 主网格固定旧版损失实现、P=1、preview EMA=.5。`pnull_p1`/`joint_null_p1` 是严格状态路径 null：仍创建/更新 prototype 状态，但两个附加 loss 权重为 0，用于排除“只是启用状态管理”带来的差异。
 
@@ -70,7 +91,7 @@ SupLoss 路线为 200 epochs 预训练 + 50 epochs 下游训练。R3D-18/MViT-v2
 
 每个预训练配置都复用同一 epoch-200 checkpoint 做 full/head-only 两种 50-epoch 微调。预训练中不会每 50 epoch 自动启动下游训练。
 
-## 5. 诊断与故障判据
+## 6. 诊断与故障判据
 
 每 10 iteration 记录：总 loss、SupLoss、加权 Proto/Rel 贡献、batch 类分布与正样本信息、q 特征范数/方差、prototype batch 信息、梯度 top-32、指定参数更新量、NaN/Inf。每个 epoch 保存 prototype 诊断，包括 active 数、类内 prototype 相似/距离、类间关系、漂移和配置元数据；每 10 epochs 重聚类。
 
@@ -85,4 +106,3 @@ SupLoss 路线为 200 epochs 预训练 + 50 epochs 下游训练。R3D-18/MViT-v2
 - N 上最佳 BA 很早出现且末 epoch 明显下降。
 
 正式报告应同时展示：逐 epoch BA/F1 曲线、最佳与末 epoch 差值、per-class 指标/混淆矩阵、train-fit UMAP/PCA、线性探针、1-NN、silhouette、Davies–Bouldin、类内/类间距离比、有效秩、prototype 漂移/相似度以及梯度/参数更新轨迹。
-

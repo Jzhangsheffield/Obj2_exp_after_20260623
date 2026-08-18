@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "package_name": "rgb_takeput_middle_proto_rel_loso_20260817",
-  "description": "Take/Put initialization-backbone study and Middle-class old ProtoLoss/RelLoss study",
+  "description": "Take/Put and Middle initialization-backbone studies plus the Middle-class old ProtoLoss/RelLoss study",
   "paths": {
     "windows": {
       "project_root": "D:/Junxi_data/Obj2_experiments_after_260623",
@@ -140,6 +140,20 @@
       {"id": "mvit_rand_sup", "backbone": "mvit_v2_s", "backbone_init": "random", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
       {"id": "mvit_k400_sup", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0}
     ],
+    "middle_direct": [
+      {"id": "r3d_rand_full", "backbone": "tv_r3d18", "backbone_init": "random", "finetune_policy": "full"},
+      {"id": "r3d_k400_full", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "finetune_policy": "full"},
+      {"id": "r3d_k400_head", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "finetune_policy": "head_only"},
+      {"id": "mvit_rand_full", "backbone": "mvit_v2_s", "backbone_init": "random", "finetune_policy": "full"},
+      {"id": "mvit_k400_full", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "finetune_policy": "full"},
+      {"id": "mvit_k400_head", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "finetune_policy": "head_only"}
+    ],
+    "middle_backbone_pretrain": [
+      {"id": "r3d_rand_sup", "backbone": "tv_r3d18", "backbone_init": "random", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "r3d_k400_sup", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "mvit_rand_sup", "backbone": "mvit_v2_s", "backbone_init": "random", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
+      {"id": "mvit_k400_sup", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0}
+    ],
     "middle_aug": [
       {"id": "aug_a0", "augmentation": "a0_mild"},
       {"id": "aug_a1", "augmentation": "a1_slowfast"},
@@ -179,10 +193,13 @@
   },
   "slurm": {
     "partition": "gpu",
-    "time": "48:00:00",
+    "qos": "gpu",
+    "time": "15:00:00",
     "gpus": 1,
     "cpus_per_task": 8,
     "memory": "64G",
+    "mail_type": "ALL",
+    "mail_user": "jzhang319@sheffield.ac.uk",
     "module_commands": [],
     "activate_command": ""
   }

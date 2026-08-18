@@ -25,6 +25,7 @@ from common.config import (
 
 PRETRAIN_STAGES = (
     "takeput_pretrain",
+    "middle_backbone_pretrain",
     "middle_aug",
     "middle_loss_screen",
     "middle_rel_topk",
@@ -32,7 +33,8 @@ PRETRAIN_STAGES = (
     "middle_combined",
     "middle_p2_sentinel",
 )
-ALL_STAGES = ("takeput_direct", *PRETRAIN_STAGES)
+DIRECT_STAGES = ("takeput_direct", "middle_direct")
+ALL_STAGES = (*DIRECT_STAGES, *PRETRAIN_STAGES)
 
 
 def add_values(command: list[str], flag: str, value: Any) -> None:
@@ -260,7 +262,7 @@ class Runner:
     def classifier(self, stage: str, fold: str, original_row: dict, policy_override: str | None = None) -> None:
         row = self.effective_row(stage, original_row)
         train_manifest, test_manifest, label_map = self.manifests(stage, fold)
-        is_direct = stage == "takeput_direct"
+        is_direct = stage in DIRECT_STAGES
         policy = policy_override or row.get("finetune_policy")
         if policy not in {"full", "head_only"}:
             raise ValueError("Specify --policy full/head_only for a pretrained experiment")
@@ -355,7 +357,7 @@ class Runner:
         row = self.effective_row(stage, original_row)
         train_manifest, test_manifest, label_map = self.manifests(stage, fold)
         if checkpoint_kind == "pretrain":
-            if stage == "takeput_direct":
+            if stage in DIRECT_STAGES:
                 raise ValueError("Direct-classification rows have no pretrain checkpoint")
             checkpoint = self.pretrain_checkpoint(stage, fold, row)
             tag = "pretrain_epoch200"
@@ -439,6 +441,10 @@ class Runner:
         ):
             if flag not in classifier_text:
                 errors.append(f"Classifier source misses required option {flag}")
+        if self.cfg["experiment_grids"].get("middle_direct") != self.cfg["experiment_grids"].get("takeput_direct"):
+            errors.append("middle_direct must exactly mirror the takeput_direct backbone/init/policy grid")
+        if self.cfg["experiment_grids"].get("middle_backbone_pretrain") != self.cfg["experiment_grids"].get("takeput_pretrain"):
+            errors.append("middle_backbone_pretrain must exactly mirror the takeput_pretrain SupLoss grid")
         prototypes = [
             int(row.get("num_prototypes", 1))
             for stage, rows in self.cfg["experiment_grids"].items()
@@ -518,7 +524,7 @@ def main() -> None:
     elif args.action == "features":
         runner.features(args.stage, args.fold, row, args.checkpoint_kind, args.policy)
     elif args.action == "pipeline":
-        if args.stage != "takeput_direct":
+        if args.stage not in DIRECT_STAGES:
             runner.pretrain(args.stage, args.fold, row)
             policies = [args.policy] if args.policy else ["full", "head_only"]
             for policy in policies:
