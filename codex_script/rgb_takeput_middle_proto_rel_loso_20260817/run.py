@@ -116,7 +116,7 @@ class Runner:
     def effective_row(self, stage: str, row: dict) -> dict:
         result = dict(row)
         if stage.startswith("middle_"):
-            result.setdefault("backbone", "mvit_v2_s")
+            result.setdefault("backbone", "tv_r3d18" if stage == "middle_aug" else "mvit_v2_s")
             result.setdefault("backbone_init", "kinetics400")
             result.setdefault("augmentation", self.cfg["selected"]["middle_augmentation"])
             result.setdefault("ablation_mode", "contrastive_only")

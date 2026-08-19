@@ -1,8 +1,10 @@
-# Take/Put：R3D-18、MViT-v2-S、K400 初始化与 SupLoss 实验分析
+# Take/Put 与 Middle：R3D-18、MViT-v2-S、K400 初始化与 SupLoss 实验分析
 
-日期：2026-08-18  
+日期：2026-08-18；Middle 与历史实验附录更新：2026-08-19  
 分析对象：`results/rgb_takeput_middle_proto_rel_loso_20260817`  
 实验包：`codex_script/rgb_takeput_middle_proto_rel_loso_20260817`
+
+> **2026-08-19 更新摘要。**新增的11类 Middle 实验再次确认 K400 初始化有效：R3D direct-full 的最佳 N BA 从77.98%提高到91.82%，MViT从65.37%提高到89.36%；SupLoss 后的 frozen-backbone probe 分别从62.23%提高到84.20%、从42.39%提高到80.41%。Middle 的最高结果为 MViT-K400 SupLoss + full FT（92.23%），与 R3D-K400 direct-full（91.82%）非常接近。新增历史附录表明，旧 R3D 对比学习表征不可分是可复现的，但最有证据支持的解释不是“R3D 天生不能学习时间/类别”，而是旧实验同时使用随机初始化、不同的自定义3D ResNet、16.7倍更高的预训练 LR、更强且可能破坏语义的增强、无效 queue entry 未屏蔽，以及更困难的类别集合；由于这些因素没有逐一消融，报告将其表述为按证据强弱排序的原因，而不是单一因果结论。
 
 ## 1. 执行摘要
 
@@ -416,7 +418,7 @@ MViT-K400 同时出现显著 feature change、BA/F1下降和 prediction flip，�
 - 报告 fold/seed 均值、标准差与配对差值；
 - UMAP 每个模型使用固定 seed，并始终 train-fit/test-transform。
 
-## 9. 最终判断
+## 9. Take/Put 阶段性判断
 
 本轮 take/put 实验最重要的贡献不是证明某个 backbone 绝对最好，而是分离了四类机制：
 
@@ -429,7 +431,7 @@ MViT-K400 同时出现显著 feature change、BA/F1下降和 prediction flip，�
 
 下一步最优先的工作应转向两个方向：第一，把同一诊断协议应用到此前出现“shuffle 不掉点”的多类 checkpoint，确认现象是否可复现并排除扰动实现差异；第二，对本轮诊断增加多个 shuffle seeds、多个训练 seeds 和完整 LOSO。若多类 R3D 仍对 global/block shuffle 不敏感，而 Take/Put R3D 明显敏感，则问题应重新定义为“R3D 学到的时间方向是否过于任务特定、低秩，无法支持细粒度多类区分”，而不是“R3D 是否完全编码时间”。
 
-## 10. 可复核文件
+## 10. Take/Put 可复核文件
 
 - 分类汇总：`report_assets/takeput_classifier_summary.csv`
 - 特征质量汇总：`report_assets/takeput_feature_summary.csv`
@@ -447,3 +449,213 @@ MViT-K400 同时出现显著 feature change、BA/F1下降和 prediction flip，�
 - 训练诊断：`results/rgb_takeput_middle_proto_rel_loso_20260817/analysis/take_put/dev_N/`
 
 所有相对路径均以项目根目录或本实验包目录为基准；报告中的图片路径以本报告所在目录为基准。
+
+## 11. Middle backbone / initialization 实验（2026-08-19）
+
+### 11.1 问题与数据
+
+Middle 任务使用与 Take/Put 相同的 `dev_N` 主体划分和训练框架，但从二分类变为11类：`insert、cut、label、pull_out、wrap、move、measure、remove、open、tear、cap`。训练集为 M/MR/J 共1,073个 clip，N 为384个 clip；类别样本明显不均衡，训练集每类为48–235、N每类为15–88，因此本节继续以 balanced accuracy（BA）和 macro-F1 为主，11类随机 BA 为9.09%。
+
+本轮输出完整：4个 epoch-200 SupLoss checkpoint、14个 downstream summary，以及对应 best/last 权重均存在。比较包含：
+
+- Direct full：R3D/MViT × random/K400；
+- 原始 K400 frozen backbone 的 direct head-only；
+- SupLoss epoch-200 后的 full/head-only：R3D/MViT × random/K400；
+- 对4个 pretrain checkpoint 重新提取 backbone 与 projection 特征，在 M/MR/J 上拟合 linear probe 和 UMAP，再将 N 直接 transform/evaluate。
+
+由于当前仍是单 seed、单 dev-N，以下差值是本轮观察值，不给出显著性声明。
+
+### 11.2 Downstream 完整结果
+
+| 路线 | Backbone | 初始化 | 策略 | Best N BA | Best N F1 | Best epoch | Final N BA | Final train BA |
+|---|---|---|---|---:|---:|---:|---:|---:|
+| Direct | R3D-18 | Random | Full | 77.98% | 75.81% | 93 | 77.00% | 100.00% |
+| Direct | R3D-18 | K400 | Head | 54.24% | 51.93% | 49 | 51.03% | 69.55% |
+| Direct | R3D-18 | K400 | Full | **91.82%** | 90.34% | 70 | 90.56% | 100.00% |
+| Direct | MViT-v2-S | Random | Full | 65.37% | 62.40% | 85 | 63.59% | 89.71% |
+| Direct | MViT-v2-S | K400 | Head | 58.63% | 56.84% | 74 | 58.08% | 79.58% |
+| Direct | MViT-v2-S | K400 | Full | 89.36% | 88.44% | 42 | 88.29% | 99.69% |
+| SupLoss | R3D-18 | Random | Head | 64.52% | 62.01% | 20 | 63.33% | 100.00% |
+| SupLoss | R3D-18 | Random | Full | 70.46% | 69.45% | 33 | 69.76% | 100.00% |
+| SupLoss | R3D-18 | K400 | Head | 82.66% | 81.11% | 3 | 82.66% | 100.00% |
+| SupLoss | R3D-18 | K400 | Full | 88.97% | 89.39% | 4 | 87.11% | 100.00% |
+| SupLoss | MViT-v2-S | Random | Head | 45.23% | 41.84% | 22 | 41.59% | 57.42% |
+| SupLoss | MViT-v2-S | Random | Full | 53.09% | 50.54% | 34 | 51.52% | 70.70% |
+| SupLoss | MViT-v2-S | K400 | Head | 81.48% | 79.28% | 23 | 81.18% | 100.00% |
+| SupLoss | MViT-v2-S | K400 | Full | **92.23%** | **91.41%** | 21 | 89.81% | 100.00% |
+
+![Middle最佳N balanced accuracy](report_assets/middle_best_ba.png)
+
+最重要的效应如下：
+
+| 比较 | R3D-18 | MViT-v2-S |
+|---|---:|---:|
+| Direct：K400 − random | **+13.84 pp** | **+23.99 pp** |
+| SupLoss + full FT：K400 − random | **+18.51 pp** | **+39.14 pp** |
+| Random：SupLoss-full − direct-full | −7.53 pp | −12.28 pp |
+| K400：SupLoss-full − direct-full | −2.85 pp | **+2.87 pp** |
+| K400 head-only：SupLoss − 原始K400 | **+28.42 pp** | **+22.84 pp** |
+
+这组结果支持四点判断：
+
+1. **K400 对 Middle 的两个 backbone 都非常有用，而且对 MViT 的作用更大。**与 Take/Put 一样，不能把 random-MViT 的失败直接当作架构能力；但 Middle 的 MViT-random direct 仍达到65.37%，说明它并非像 Take/Put 那样完全停在随机水平，而是 SupLoss 路线在当前超参数下明显没有训练到好解。
+2. **最高最终性能没有显示明显 backbone 胜者。**MViT-K400 SupLoss-full 为92.23%，R3D-K400 direct-full 为91.82%，只差0.41 pp；单 seed 下不应据此宣称 MViT 优于 R3D。
+3. **SupLoss 的收益主要体现在 frozen representation。**两个 K400 backbone 的 head-only 均提高22–28 pp，表明预训练确实重组了类别空间；但 full FT 后，R3D 反而低于 direct 2.85 pp，MViT仅提高2.87 pp。
+4. **random SupLoss 对两种 backbone 都有负迁移。**这不是 R3D 独有问题；当没有 K400 时，当前对比学习目标/优化协议比直接监督更难，且 epoch-200 不一定是最适合迁移的 checkpoint。
+
+### 11.3 Epoch-200 frozen feature 与 UMAP
+
+![Middle epoch-200 frozen probe](report_assets/middle_frozen_probe.png)
+
+| Backbone | Init | 表征 | Train silhouette | N silhouette | N linear BA | N macro-F1 | N 1-NN BA | N effective rank |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| R3D-18 | Random | Backbone | 0.780 | 0.138 | 62.23% | 59.41% | 62.22% | 7.79 |
+| R3D-18 | Random | Projection | 0.962 | 0.139 | 59.79% | 57.80% | 59.77% | 8.85 |
+| R3D-18 | K400 | Backbone | **0.945** | **0.522** | **84.20%** | **82.17%** | 84.42% | 13.50 |
+| R3D-18 | K400 | Projection | 0.993 | **0.555** | **84.41%** | **82.85%** | 84.51% | 9.25 |
+| MViT-v2-S | Random | Backbone | 0.209 | −0.027 | 42.39% | 38.36% | 39.09% | 4.40 |
+| MViT-v2-S | Random | Projection | 0.225 | −0.086 | 41.69% | 37.30% | 37.18% | 3.34 |
+| MViT-v2-S | K400 | Backbone | 0.847 | 0.360 | 80.41% | 77.05% | 80.82% | **28.46** |
+| MViT-v2-S | K400 | Projection | 0.986 | 0.441 | 80.65% | 77.37% | **82.04%** | 9.09 |
+
+![Middle epoch-200 UMAP](report_assets/middle_umap_grid.png)
+
+图中圆点为 M/MR/J，叉号为 held-out N。UMAP 只在训练主体上拟合，因此叉号相对训练簇的位置可以用于观察跨被试漂移。主要现象是：
+
+- R3D-random 在训练集已形成紧凑类别岛，但 N 上的 `insert、remove、tear、cap` 明显漂移，frozen-backbone recall 仅28.4%、40.0%、33.3%、38.9%；这更像过拟合训练主体的类别原型，而不是所有类别都没有被分开。
+- R3D-K400 将 N silhouette 从0.138提高到0.522、linear BA 从62.23%提高到84.20%。困难仍集中在 `insert`（51.1% recall）、`cap`（50.0%）与 `tear`（72.2%），而 `cut、move、remove` 达到100%。
+- MViT-random 的多个类别沿连续曲线混合，N silhouette 为负；其 SupLoss 表征虽然高于9.09%随机水平，但跨被试类别几何很弱。这与 downstream SupLoss-full 只有53.09%一致。
+- MViT-K400 也形成明确类别岛，frozen BA 80.41%；其 effective rank 28.46，明显高于 R3D-K400 的13.50。MViT 保留更多变化维度，但没有自动转化为更高 frozen BA；R3D 的类别 margin 更清楚。
+- Projection head 没有“修复”一个坏 backbone，也没有造成 K400 模型的信息断层：同一模型的 backbone/projection N BA 非常接近。因而本轮可分性结论不是只看错了表示层。
+
+### 11.4 训练动力学
+
+![Middle SupLoss训练动力学](report_assets/middle_pretrain_dynamics.png)
+
+K400 R3D/MViT 的 loss 在约50–70 epoch 已降至约4.8并进入平台，projection dispersion 稳定在约0.064–0.067；它们的 downstream 最佳 epoch 又分别只有4和21。相比之下：
+
+- R3D-random 的 loss 缓慢降至约4.9，表示离散度从极低值逐步恢复，和 Take/Put 的“先低变化、后恢复”轨迹一致；
+- MViT-random 到epoch 200的 loss 仍约6.1，梯度活动持续升高，表示离散度虽恢复到约0.04但仍显著低于成功模型。它不是完全静止的数值塌缩，却显然没有收敛到好的跨被试类别几何。
+
+这说明固定训练200 epoch并不能保证公平：K400 模型较早形成有效表示，random 模型则可能需要完全不同的 LR/warm-up/regularization，而不是单纯延长训练。后续应保存25/50/100/200并以 frozen N-independent validation probe 选择预训练阶段。
+
+### 11.5 Middle 对原 R3D 问题的直接回答
+
+Middle 已经否定“只要类别多，R3D 对比学习就无法区分特征”的强命题。11类情况下：
+
+- R3D-random epoch-200 backbone probe 为62.23%，远高于9.09%随机水平；
+- R3D-K400 达到84.20%，且 UMAP 中多数类别形成清晰训练/N对应簇；
+- R3D-K400 SupLoss head-only 达82.66%，证明类别信息在冻结 backbone 中已经可用；
+- full FT 后 R3D-K400 达88.97%，而 direct-full 达91.82%。
+
+因此，R3D 当前真正暴露的问题不是“不能形成多类特征”，而是：random 初始化下跨被试 margin 较弱；若 full FT 可用，SupLoss 没有超过 direct；若关注 frozen representation，K400 是主要成功条件。Middle 尚未做帧序扰动，故不能由本节证明11类 R3D 使用了时间顺序；它只证明了类别可分性。
+
+## 12. 附录：为何旧 R3D 对比学习后看起来无法区分类别
+
+### 12.1 复核范围与结论边界
+
+本附录复核了用户列出的7组 `cl_rgb_*` 预训练实验、7组对应 `ft_rgb_*_seed1` 微调实验，以及 `analysis/N_as_test/umap_rgb_pretrain`、`umap_rgb_last` 和 `umap_rgb_last_3d`。`analysis` 元数据中的旧 checkpoint 路径有一部分使用不带 `cl_` 的历史别名；对 baseline `suploss_only/checkpoint_0200.pth` 计算 SHA-256 后，带/不带 `cl_` 的文件完全一致，因此该别名不影响本文的 baseline 数值。
+
+结论分为两层：
+
+- **可以确认：**旧 R3D epoch-200 对比学习输出在 Take/Put 上几乎没有 frozen 线性可分性；在15类 except-take/put 上虽高于随机，但整体很弱，而且 proto/rel 组合往往进一步降低 frozen probe。
+- **不能仅凭现有实验确认：**究竟是某一个因素单独导致失败。旧/新实验同时改变了 backbone 实现、初始化、LR、增强、queue 处理和类别集合，因此原因只能按证据强弱排序，并需要最小消融验证。
+
+### 12.2 旧 epoch-200 frozen probe：不可分现象确实存在
+
+旧分析使用训练主体特征拟合 linear probe、在 N 上测试。关键结果如下：
+
+| 旧任务 | Epoch-200方法 | Backbone linear BA | Projection linear BA | 随机BA |
+|---|---|---:|---:|---:|
+| Take/Put | SupLoss only | 49.81% | 50.00% | 50.00% |
+| Take/Put | SupLoss + Proto P3 | 50.00% | 50.00% | 50.00% |
+| Take/Put | SupLoss + Proto/Rel | 50.00% | 50.00% | 50.00% |
+| Take/Put | SupLoss + Rel | 50.00% | 50.00% | 50.00% |
+| Except Take/Put（15类） | SupLoss only | **32.93%** | 26.66% | 6.67% |
+| Except Take/Put（15类） | SupLoss + Proto P3 | 23.50% | 20.52% | 6.67% |
+| Except Take/Put（15类） | SupLoss + Proto/Rel | 19.35% | 14.99% | 6.67% |
+| Except Take/Put（15类） | SupLoss + Rel | 17.23% | 14.90% | 6.67% |
+
+所以旧观察不能简单归咎于“UMAP画得不好”：Take/Put 的 linear probe 与 k-NN 都约等于随机；15类中 SupLoss-only 尚有信息，但随着 proto/rel 约束加入，probe 反而下降。特别是 projection 通常比512维 backbone 更差，说明优化目标可能在投影空间形成了不利于 held-out subject 的结构。
+
+同时也要注意，旧 UMAP 脚本对 train、test、combined 分别调用 `fit_transform`，不同图的坐标系并不相同；它适合看单图内部混合，却不适合比较训练簇与 N 漂移。新报告统一采用 train-fit/test-transform，并用 probe/silhouette作为主证据。因此“旧特征弱”成立，但不能只凭旧二维图判断弱到什么程度。
+
+### 12.3 旧下游微调：预训练通常没有超过 scratch
+
+| 旧实验族 | 最佳 scratch full BA | 最佳 pretrained full BA | 差值 |
+|---|---:|---:|---:|
+| Except + stage5 rel-topk | 90.81% | 79.99% | −10.83 pp |
+| Take/Put 22组 | 95.32% | 94.55% | −0.77 pp |
+| Except Take/Put 22组 | 91.01% | 86.07% | −4.93 pp |
+| Except + depth10 | 86.75% | 79.40% | −7.35 pp |
+| Except + random queue size | 87.31% | 84.59% | −2.72 pp |
+| Except + rel-topk | 89.03% | 83.46% | −5.57 pp |
+| Except + sampler | 89.90% | 85.96% | −3.95 pp |
+
+七个实验族中，即使选择该族最好的 pretrained full run，也没有一个超过各自 scratch full；这说明旧对比学习问题不只是“二维空间不好看”，而是整体没有带来正迁移。但 pretrained full 仍可达到约80%–94.5%，说明 backbone 不是永久损坏，监督微调能够重组特征。最准确的表述是：**旧对比学习 checkpoint 没有提供一个良好的、可冻结迁移的类别空间，而且通常还是比 scratch 更差的初始化；这不等于 R3D 本身无法学习分类。**
+
+### 12.4 新旧协议的关键差异
+
+| 因素 | 旧 R3D 系列 | 本轮 Middle | 可能影响 |
+|---|---|---|---|
+| 初始化 | Random only | Random + K400 | 本轮最强实证因素；R3D frozen BA +21.97 pp，full BA +13.84至18.51 pp |
+| Backbone 实现 | 项目自定义3D ResNet-18；stem时间核7，后续均为3×3×3，3D max-pool | torchvision `r3d_18` | 两者都叫R3D-18但结构/预训练兼容性不同，不能视作同一模型 |
+| 预训练 LR | `1e-3` | `6e-5` | 旧值高16.7倍；random 训练可能不稳，K400若直接套用更易破坏先验 |
+| LR schedule | 50/100/150 step，`cos=false` | warm-up + cosine，`cos=true` | 新协议更新更平滑 |
+| Batch | 64 | 32 | 改变每批正样本数、BN和queue更新节奏 |
+| Queue | K=1088，`exclude_invalid_queue=false` | K=1088，`true` | 旧训练早期将未填充queue位置纳入候选，可能污染对比损失 |
+| Crop | scale 0.6–1.0，ratio 0.75–1.33 | scale 0.85–1.0，ratio 0.9–1.1 | 旧裁剪更容易移除手-物关系与操作上下文 |
+| 翻转 | H=0.5，**V=0.5** | H=0.5，V=0 | 垂直翻转不符合真实操作场景，可能迫使模型忽略位置/方向线索 |
+| 光度增强 | jitter/gray/blur均0.5，jitter较强 | jitter 0.2、gray 0、blur 0.1，jitter较弱 | 旧增强可能在小数据上过强，正对被迫对不自然视图保持一致 |
+| 随机性 | `seed=null` | seed 1 | 旧复现与run间归因更困难 |
+| 任务 | Take/Put 2类或Except 15类 | Middle 11类 | 类定义、样本量和视觉/时间线索均不同 |
+
+还存在一个重要的混杂：旧15类测试标签中 `close` 在 N 上为0样本，旧 probe 的15类 BA实际会受缺失类别处理方式影响；报告引用原分析实现的数值，但不把旧32.93%与新11类62.23%做严格同尺度的绝对比较。
+
+### 12.5 原因排序
+
+结合新旧证据，最合理的排序是：
+
+1. **K400 缺失是第一优先原因，证据最强。**同一新协议、同一 Middle 数据中，K400 使 R3D epoch-200 backbone probe 从62.23%升到84.20%，并使 SupLoss-full从70.46%升到88.97%。Take/Put 中也有同方向改善。旧实验完全没有这一关键控制。
+2. **旧优化与增强组合是第二优先原因。**旧 LR 高16.7倍，并同时使用宽裁剪、0.5垂直翻转、0.5灰度和0.5模糊。对需要手-物位置、状态和方向的动作，这些不变性可能直接压掉判别线索。Middle 的 random R3D 在温和协议下已能达到62.23% frozen BA，说明“random必然不可分”也不成立。
+3. **旧/新 R3D 不是同一个实现。**旧自定义3D ResNet与 torchvision R3D-18 的 stem、block和下采样设计不同；目前没有在同一协议下只替换实现的消融，因此它是高可信混杂，但尚不能量化贡献。
+4. **无效 queue entry 与 sampler/queue 细节可能加重早期训练问题。**新协议显式屏蔽无效 queue，旧协议不屏蔽；旧的 queue size、balanced sampler、top-k、proto/rel 大量搜索并未稳定解决问题，说明它们更像次级因素，而不是主因。
+5. **任务难度和跨被试漂移解释了一部分，但不是全部。**15类当然比2类难；然而旧 Take/Put frozen BA也只有50%，所以不能只怪类别多。反过来，新11类 R3D-K400 frozen BA达到84.20%，说明类别数量本身也不是充分原因。
+6. **“R3D没有时间特征”目前不是首选解释。**本轮 Take/Put 时间扰动已证明 R3D-K400/global shuffle下降35.00 pp、reverse下降74.86 pp，R3D-random也显著下降。旧实验更可能没有把类别/时间结构优化进可迁移空间，而不是架构原则上无法编码时间。
+
+### 12.6 仍不能排除的机制
+
+新 Middle UMAP 主要证明类别可分，没有对11类 checkpoint 做帧序扰动。因此仍可能存在一种更窄的机制：R3D 能借助静态物体状态、手的位置和场景上下文把 Middle 分开，但对区分某些时间对称或细粒度类别仍较少使用帧序。要检验这一点，应把已经实现的 `original/reverse/global shuffle/4-block/within-block/repeat-center/temporal-mean repeat` 诊断原样应用到 Middle 的四个 epoch-200 checkpoint，并按11类分别报告 recall drop。只有当 R3D-K400 在高原序BA下对 global/block shuffle仍不下降，而 MViT-K400下降，才能把差异归因到时间顺序利用。
+
+### 12.7 最小验证实验
+
+为了从“协议混杂”走向因果解释，建议按优先级做以下最小实验，而不是继续大范围搜索 proto/rel/top-k：
+
+1. 固定 Middle、torchvision R3D-18、mild augmentation、LR `6e-5`，只比较 random/K400；本轮已完成。
+2. 固定 R3D-K400，依次单独切换 mild→old augmentation、`exclude_invalid_queue=true→false`、LR `6e-5→1e-3`。每项至少3 seeds，并保存epoch 25/50/100/200 frozen probe。
+3. 固定数据与全部优化参数，只比较旧 custom ResNet3D-18 与 torchvision R3D-18；这是隔离“同名不同backbone”的必要实验。
+4. 对当前 Middle 四个权重执行无需重训练的时间扰动；若 R3D/MViT 都下降，旧问题主要是训练协议；若只有 MViT下降，再设计 chronological-vs-shuffled pretraining 因果网格。
+5. 最终锁定配置后做 M/J/MR/N 完整 LOSO；当前 N 被用于逐epoch选模，只能称为开发被试。
+
+## 13. 更新后的总体结论
+
+把 Take/Put、Middle 和旧实验放在一起后，证据支持以下统一解释：
+
+- R3D-18 可以学习清晰的二类和11类表征，也可以编码时间方向；“R3D天生不具备时间/类别建模能力”不成立。
+- K400 是当前最稳定的成功条件。它对 MViT尤其关键，对 R3D也从“可训练但跨被试边界较弱”提升到强 frozen representation。
+- SupLoss 对 frozen/head-only 的价值非常明确，但不保证提高 full fine-tuning 上限。R3D 在 Take/Put和Middle均由 direct-full略胜SupLoss-full；MViT-K400则由SupLoss获得约2–3 pp。
+- 旧 R3D checkpoint 的不可分现象是真实的，且预训练通常没有超过scratch；但旧协议改变因素过多。现有最强解释是 random初始化 + 激进增强 + 高LR + queue早期污染 + 不同R3D实现的组合，而不是单一“时间特征缺失”。
+- 当前最值得做的不是继续扩展proto/rel超参数，而是对 Middle 做同口径时间扰动，并做三个单变量消融：旧增强、旧LR、旧custom R3D。
+
+## 14. Middle 与历史附录可复核文件
+
+- Middle downstream汇总：`report_assets/middle_classifier_summary.csv`
+- Middle frozen feature汇总：`report_assets/middle_feature_summary.csv`
+- Middle逐epoch训练诊断：`report_assets/middle_pretrain_debug_by_epoch.csv`
+- Middle UMAP、PCA、原始特征与单模型指标：`report_assets/middle_umap/<run>/`
+- Middle图表：`report_assets/middle_best_ba.png`、`middle_frozen_probe.png`、`middle_umap_grid.png`、`middle_pretrain_dynamics.png`
+- 旧 epoch-200 probe汇总：`report_assets/historical_r3d_pretrain_probe_summary.csv`
+- 旧7组微调实验族汇总：`report_assets/historical_r3d_finetune_family_summary.csv`
+- 本节可复现生成脚本：`tools/build_middle_analysis_assets.py`
+- 旧UMAP/probe原始分析：`analysis/N_as_test/umap_rgb_pretrain/`
+- 旧fine-tuned UMAP：`analysis/N_as_test/umap_rgb_last/` 与 `umap_rgb_last_3d/`

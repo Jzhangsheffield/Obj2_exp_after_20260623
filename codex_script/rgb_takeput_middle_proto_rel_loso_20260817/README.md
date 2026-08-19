@@ -9,6 +9,7 @@
 - `full`：全部 17 类；本包先生成 manifest，当前实验网格不自动训练 full。
 - `middle_direct`：在11类 Middle 上复刻 Take/Put 的6项 direct backbone×初始化对照。
 - `middle_backbone_pretrain`：在11类 Middle 上运行 R3D-18/MViT-v2-S × random/K400 的4项 SupLoss；每个 checkpoint 接 full/head-only 两种下游训练。
+- `middle_aug`：固定使用 torchvision R3D-18 与 K400 初始化，仅比较7种对比学习数据增强；下游分类增强保持不变。
 - 参数开发固定使用 `dev_N`：M+MR+J 训练，N 每个分类 epoch 都评估并记录。
 - N 已参与模型、超参数和 epoch 选择，因此报告中必须称为开发被试，不能称为无偏最终测试。
 - 参数锁定后才运行 `test_M/test_J/test_MR`。每个 fold 都由其余三人训练、目标一人测试，不复用 N 上训练的权重。
@@ -32,7 +33,7 @@ Slurm 推荐始终通过 `scripts/slurm/submit.sh` 提交，使 `SLURM_SUBMIT_DI
 2. `11_takeput_supcon_devN`：4 个 SupLoss 预训练配置；每个预训练 checkpoint 接 full/head-only 两种下游微调。
 3. `12_middle_backbone_direct_devN`：11 类 Middle 的6项 direct backbone×初始化对照。
 4. `13_middle_backbone_supcon_devN`：11 类 Middle 的4项 SupLoss backbone×初始化对照；每项接 full/head-only。
-5. `20_middle_augmentation_devN`：7 个增强候选；先固定最佳增强。
+5. `20_middle_augmentation_devN`：固定 torchvision R3D-18 + K400，比较7个对比学习增强候选；先固定最佳增强。
 6. `30_middle_loss_screen_devN`：SupLoss、严格 null、P=1 Proto 权重与 Rel 权重初筛。
 7. `31_middle_rel_topk_devN`：topK=3/5/10；11 类中每类只有 10 个异类，因此 K=10 就是 all。
 8. `32_middle_followups_devN`：只在前一步证据支持时手动运行 Rel 起点、联合损失和 P=2 sentinel。

@@ -155,13 +155,13 @@
       {"id": "mvit_k400_sup", "backbone": "mvit_v2_s", "backbone_init": "kinetics400", "augmentation": "a0_mild", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0}
     ],
     "middle_aug": [
-      {"id": "aug_a0", "augmentation": "a0_mild"},
-      {"id": "aug_a1", "augmentation": "a1_slowfast"},
-      {"id": "aug_a2", "augmentation": "a2_cvrl_adapted"},
-      {"id": "aug_a3", "augmentation": "a3_tclr_adapted"},
-      {"id": "aug_a4", "augmentation": "a4_geometry_only"},
-      {"id": "aug_a5", "augmentation": "a5_photo_only"},
-      {"id": "aug_a6", "augmentation": "a6_no_flip"}
+      {"id": "r3d_k400_aug_a0", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a0_mild"},
+      {"id": "r3d_k400_aug_a1", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a1_slowfast"},
+      {"id": "r3d_k400_aug_a2", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a2_cvrl_adapted"},
+      {"id": "r3d_k400_aug_a3", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a3_tclr_adapted"},
+      {"id": "r3d_k400_aug_a4", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a4_geometry_only"},
+      {"id": "r3d_k400_aug_a5", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a5_photo_only"},
+      {"id": "r3d_k400_aug_a6", "backbone": "tv_r3d18", "backbone_init": "kinetics400", "augmentation": "a6_no_flip"}
     ],
     "middle_loss_screen": [
       {"id": "s0_sup", "ablation_mode": "contrastive_only", "num_prototypes": 1, "lambda_proto": 0.0, "lambda_rel": 0.0},
