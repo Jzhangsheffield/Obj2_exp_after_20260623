@@ -80,6 +80,16 @@ HPC 在 `scripts/slurm` 目录通过统一提交器运行：
 ./submit.sh 13_middle_backbone_supcon_devN.slurm
 ```
 
+### HPC 换行要求
+
+Slurm shell 文件必须使用 Unix LF。实验包根目录的 `.gitattributes` 已锁定 `scripts/slurm/*.sh` 和 `*.slurm` 为 LF；同步更新后的文件到 HPC 即可。若 HPC 上仍保留此前的 CRLF 副本，可在 `scripts/slurm` 目录执行一次：
+
+```text
+sed -i 's/\r$//' common_env.sh submit.sh *.slurm
+```
+
+出现 `set: pipefail: invalid option name` 或错误文本中带隐藏回车时，通常就是该问题。
+
 ## 结果与分析
 
 - `tools/analyze_training_diagnostics.py`：汇总 loss、梯度范数、参数更新、特征统计、nonfinite、prototype 状态和 checkpoint 完整性。
